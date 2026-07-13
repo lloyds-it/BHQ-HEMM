@@ -1,0 +1,64 @@
+name: Deploy to Linux Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build and Publish .NET Backend
+        run: |
+          cd backend/EquipmentLogApi
+          dotnet publish -c Release -o ../../publish/backend
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: '3.22.2'
+
+      - name: Build Flutter Web
+        run: |
+          cd frontend
+          flutter clean
+          flutter pub get
+          flutter build web --release --base-href /hemm/
+          cp -r build/web ../publish/frontend
+
+      - name: Deploy to Server via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "publish/backend/*,publish/frontend/*"
+          target: "/var/www/bhq-hemm"
+          strip_components: 1
+
+      - name: Restart Services via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            # Ensure permissions are correct
+            sudo chown -R www-data:www-data /var/www/bhq-hemm/frontend
+            
+            # Restart the .NET backend service
+            sudo systemctl restart bhq-hemm.service
+            
+            # Restart Nginx
+            sudo systemctl restart nginx

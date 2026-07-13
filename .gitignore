@@ -1,0 +1,42 @@
+# .NET Core
+backend/**/bin/
+backend/**/obj/
+backend/**/*.user
+backend/**/*.suo
+backend/**/*.vs/
+backend/**/*.ide/
+backend/**/.vs/
+backend/**/.vscode/
+backend/**/appsettings.Development.json
+
+# Flutter/Dart
+frontend/.dart_tool/
+frontend/build/
+frontend/.pub-cache/
+frontend/.pub/
+frontend/app/outputs/
+frontend/app/build/
+frontend/ios/Pods/
+frontend/ios/.symlinks/
+frontend/ios/Flutter/Flutter.framework/
+frontend/ios/Flutter/Flutter.podspec
+frontend/android/.gradle/
+frontend/android/app/build/
+frontend/android/app/src/main/gen/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Massive downloaded dependencies
+dotnet/
+dotnet-sdk/
+dotnet_sdk/
+dotnet-sdk.zip
+app-debug.apk
+backend_err.log
+backend_run.log
