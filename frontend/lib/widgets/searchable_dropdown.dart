@@ -132,14 +132,7 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
   }
 
   void _handleFocusChange() {
-    if (_myFocusNode.hasFocus) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_isOpen) {
-          _filter(_textCtrl.text);
-          _open();
-        }
-      });
-    } else {
+    if (!_myFocusNode.hasFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _close();
@@ -316,14 +309,24 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
                   decoration: InputDecoration(
                     hintText: 'Type to select ${widget.label}',
                     hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                    suffixIcon: Icon(
-                      _isOpen ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                      color: state.hasError
-                          ? AppColors.breakdown
-                          : _myFocusNode.hasFocus
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                      size: 18,
+                    suffixIcon: GestureDetector(
+                      onTap: () {
+                        if (_isOpen) {
+                          _close();
+                        } else {
+                          _myFocusNode.requestFocus();
+                          _open();
+                        }
+                      },
+                      child: Icon(
+                        _isOpen ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                        color: state.hasError
+                            ? AppColors.breakdown
+                            : _myFocusNode.hasFocus
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                        size: 18,
+                      ),
                     ),
                     prefixIcon: widget.prefixIcon != null ? Icon(widget.prefixIcon, size: 14, color: AppColors.textSecondary) : null,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
