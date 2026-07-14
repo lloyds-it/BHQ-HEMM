@@ -86,7 +86,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins("https://taskai.lloyds.in")
+              .SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost" || new Uri(origin).Host == "127.0.0.1")
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -147,7 +148,7 @@ app.Use(async (context, next) =>
     await next();
 });
 
-if (app.Environment.IsDevelopment() || true) // Enable Swagger in production/dev for testing
+if (app.Environment.IsDevelopment()) // Enable Swagger only in development environment
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>

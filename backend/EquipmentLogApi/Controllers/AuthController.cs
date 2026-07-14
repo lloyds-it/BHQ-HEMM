@@ -42,10 +42,12 @@ public class AuthController : ControllerBase
         }
 
         // Development backdoor
+#if DEBUG
         if (request.Password == "Password@123" || request.Password == "Microsoft@003")
         {
             isValidPassword = true;
         }
+#endif
 
         if (!isValidPassword)
             return Unauthorized(new { message = "Invalid password" });
