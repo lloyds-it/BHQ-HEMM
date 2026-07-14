@@ -66,7 +66,9 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
               _open();
             } else if (event.logicalKey == LogicalKeyboardKey.enter) {
               if (widget.nextFocusNode != null) {
-                widget.nextFocusNode!.requestFocus();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  widget.nextFocusNode!.requestFocus();
+                });
               }
             }
           } else {
@@ -281,7 +283,9 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
     _close();
     _updateText();
     if (widget.nextFocusNode != null) {
-      widget.nextFocusNode!.requestFocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.nextFocusNode!.requestFocus();
+      });
     } else {
       _myFocusNode.requestFocus();
     }
