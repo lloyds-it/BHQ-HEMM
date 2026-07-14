@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
+import '../providers/master_provider.dart';
 import 'live_entry_form.dart';
 import 'summary_log_form.dart';
 import 'masters_screen.dart';
@@ -40,25 +41,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  void _onNavTapped(int index) {
-    if (index == _selectedIndex) return;
-    
-    // Index 0: Dashboard (stay)
-    // Index 1: Live Entry
-    // Index 2: Summary Log
-    // Index 3: Reports
-    // Index 4: Masters
-    
-    Widget? target;
-    if (index == 1) target = const LiveEntryForm();
-    if (index == 2) target = const SummaryLogForm();
-    if (index == 3) target = const ReportsScreen();
-    if (index == 4) target = const MastersScreen();
-    
-    if (target != null) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => target!)).then((_) {
-        Provider.of<DashboardProvider>(context, listen: false).fetchStats();
-      });
+  Widget _getCurrentPage(bool isAdmin) {
+    switch (_selectedIndex) {
+      case 0:
+        return _DashboardContent(
+          onLogout: _logout,
+          onNavigate: (index) {
+            setState(() => _selectedIndex = index);
+          },
+        );
+      case 1:
+        return const LiveEntryForm(isEmbed: true);
+      case 2:
+        return const SummaryLogForm(isEmbed: true);
+      case 3:
+        return isAdmin ? const ReportsScreen(isEmbed: true) : const Text('Access Denied');
+      case 4:
+        return isAdmin ? const MastersScreen(isEmbed: true) : const Text('Access Denied');
+      default:
+        return const Text('Page not found');
+    }
+  }
+
+  String _getPageTitle() {
+    switch (_selectedIndex) {
+      case 0:
+        return 'Dashboard';
+      case 1:
+        return 'Live Entry';
+      case 2:
+        return 'Summary Log';
+      case 3:
+        return 'Reports';
+      case 4:
+        return 'Master Data';
+      default:
+        return '';
     }
   }
 
@@ -66,26 +84,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final isAdmin = auth.role == 'Admin';
-    final isSupervisor = auth.role == 'Supervisor';
-    
+
     return Scaffold(
       backgroundColor: AppColors.bgPage,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isDesktop = constraints.maxWidth > 800;
-          
+          final isDesktop = constraints.maxWidth > 950;
+
           if (isDesktop) {
             return Row(
               children: [
                 _buildSideNav(isAdmin),
-                const VerticalDivider(thickness: 1, width: 1, color: AppColors.border),
-                Expanded(child: _DashboardContent(onLogout: _logout)),
+                Container(width: 1, color: AppColors.border),
+                Expanded(
+                  child: Column(
+                    children: [
+                      // Top Header Bar
+                      _buildTopHeader(auth),
+                      Container(height: 1, color: AppColors.border),
+                      // Main Content Area
+                      Expanded(
+                        child: ClipRect(
+                          child: _getCurrentPage(isAdmin),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             );
           } else {
             return Column(
               children: [
-                Expanded(child: _DashboardContent(onLogout: _logout)),
+                _buildTopHeader(auth),
+                Container(height: 1, color: AppColors.border),
+                Expanded(
+                  child: _getCurrentPage(isAdmin),
+                ),
                 _buildBottomNav(isAdmin),
               ],
             );
@@ -95,32 +130,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildTopHeader(AuthProvider auth) {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      color: Colors.white,
+      child: Row(
+        children: [
+          const LogoHeader(height: 20),
+          const SizedBox(width: 12),
+          Text(
+            _getPageTitle(),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary),
+          ),
+          const Spacer(),
+          Text(
+            '${auth.username ?? ''} (${auth.role ?? ''})',
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: AppColors.textPrimary, size: 18),
+            onPressed: () {
+              Provider.of<DashboardProvider>(context, listen: false).fetchStats();
+              if (_selectedIndex == 4) {
+                final m = Provider.of<MasterProvider>(context, listen: false);
+                m.fetchProjects();
+                m.fetchEquipment();
+                m.fetchOperators();
+              }
+            },
+            tooltip: 'Refresh Data',
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: AppColors.danger, size: 18),
+            onPressed: _logout,
+            tooltip: 'Logout',
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSideNav(bool isAdmin) {
     return NavigationRail(
       selectedIndex: _selectedIndex,
-      onDestinationSelected: _onNavTapped,
+      onDestinationSelected: (index) {
+        setState(() => _selectedIndex = index);
+      },
       labelType: NavigationRailLabelType.all,
-      backgroundColor: AppColors.bgCard,
-      selectedIconTheme: const IconThemeData(color: AppColors.primary),
-      unselectedIconTheme: const IconThemeData(color: AppColors.textSecondary),
-      selectedLabelTextStyle: DesignSystem.getTextTheme(context).labelMedium?.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
-      unselectedLabelTextStyle: DesignSystem.getTextTheme(context).labelMedium?.copyWith(color: AppColors.textSecondary),
+      backgroundColor: Colors.white,
+      selectedIconTheme: const IconThemeData(color: AppColors.primary, size: 20),
+      unselectedIconTheme: const IconThemeData(color: AppColors.textSecondary, size: 20),
+      selectedLabelTextStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 11),
+      unselectedLabelTextStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
       leading: Padding(
-        padding: const EdgeInsets.only(bottom: 24, top: 16),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.precision_manufacturing_rounded, color: AppColors.primary, size: 28),
-            ),
-            const SizedBox(height: 8),
-            Text('BHQ HEMM', style: DesignSystem.getTextTheme(context).titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-          ],
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+          child: const Icon(Icons.precision_manufacturing_rounded, color: AppColors.primary, size: 24),
         ),
       ),
       destinations: [
-        const NavigationRailDestination(icon: Icon(Icons.dashboard_rounded), label: Text('Dashboard')),
+        const NavigationRailDestination(icon: Icon(Icons.dashboard_rounded), label: Text('Home')),
         const NavigationRailDestination(icon: Icon(Icons.bolt_rounded), label: Text('Live Entry')),
         const NavigationRailDestination(icon: Icon(Icons.assignment_rounded), label: Text('Summary')),
         if (isAdmin)
@@ -128,41 +201,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (isAdmin)
           const NavigationRailDestination(icon: Icon(Icons.settings_rounded), label: Text('Masters')),
       ],
-      trailing: Expanded(
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: IconButton(
-              icon: const Icon(Icons.logout_rounded, color: AppColors.danger),
-              tooltip: 'Logout',
-              onPressed: _logout,
-            ),
-          ),
-        ),
-      ),
     );
   }
 
   Widget _buildBottomNav(bool isAdmin) {
     return BottomNavigationBar(
       currentIndex: _selectedIndex,
-      onTap: _onNavTapped,
+      onTap: (index) {
+        setState(() => _selectedIndex = index);
+      },
       type: BottomNavigationBarType.fixed,
-      backgroundColor: AppColors.bgCard,
+      backgroundColor: Colors.white,
       selectedItemColor: AppColors.primary,
       unselectedItemColor: AppColors.textSecondary,
       showUnselectedLabels: true,
-      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-      unselectedLabelStyle: const TextStyle(fontSize: 11),
+      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+      unselectedLabelStyle: const TextStyle(fontSize: 10),
       items: [
-        const BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Home'),
-        const BottomNavigationBarItem(icon: Icon(Icons.bolt_rounded), label: 'Live'),
-        const BottomNavigationBarItem(icon: Icon(Icons.assignment_rounded), label: 'Summary'),
+        const BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded, size: 18), label: 'Home'),
+        const BottomNavigationBarItem(icon: Icon(Icons.bolt_rounded, size: 18), label: 'Live'),
+        const BottomNavigationBarItem(icon: Icon(Icons.assignment_rounded, size: 18), label: 'Summary'),
         if (isAdmin)
-          const BottomNavigationBarItem(icon: Icon(Icons.bar_chart_rounded), label: 'Reports'),
+          const BottomNavigationBarItem(icon: Icon(Icons.bar_chart_rounded, size: 18), label: 'Reports'),
         if (isAdmin)
-          const BottomNavigationBarItem(icon: Icon(Icons.settings_rounded), label: 'Masters'),
+          const BottomNavigationBarItem(icon: Icon(Icons.settings_rounded, size: 18), label: 'Masters'),
       ],
     );
   }
@@ -170,65 +232,109 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 class _DashboardContent extends StatelessWidget {
   final VoidCallback onLogout;
-  const _DashboardContent({required this.onLogout});
+  final ValueChanged<int> onNavigate;
+  const _DashboardContent({required this.onLogout, required this.onNavigate});
 
   @override
   Widget build(BuildContext context) {
     final stats = Provider.of<DashboardProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
     final isAdmin = auth.role == 'Admin';
-    final isSupervisor = auth.role == 'Supervisor';
-    final p = AppTheme.pagePadding;
+    const p = 10.0;
 
-    return Scaffold(
-      backgroundColor: AppColors.bgPage,
-      appBar: AppBar(
-        backgroundColor: AppColors.bgPage,
-        elevation: 0,
-        title: const LogoHeader(height: 28),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: AppColors.textPrimary),
-            onPressed: () => stats.fetchStats(),
-            tooltip: 'Refresh',
-          ),
-          if (MediaQuery.of(context).size.width <= 800)
-            IconButton(
-              icon: const Icon(Icons.logout_rounded, color: AppColors.danger),
-              onPressed: onLogout,
-              tooltip: 'Logout',
-            ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: stats.isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : RefreshIndicator(
-              onRefresh: () => stats.fetchStats(),
-              color: AppColors.primary,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.all(p),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeroHeader(context, auth),
-                    SizedBox(height: AppTheme.sectionSpacing),
-                    _buildStatsGrid(context, stats),
-                    if (isAdmin) ...[
-                      SizedBox(height: AppTheme.sectionSpacing),
-                      Text('Analytics & Trends', style: DesignSystem.getTextTheme(context).titleLarge),
-                      const SizedBox(height: 12),
-                      DashboardAnalyticsGrid(stats: stats),
+    if (stats.isLoading) {
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth > 950;
+
+        if (isDesktop) {
+          return Padding(
+            padding: const EdgeInsets.all(p),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeroHeader(context, auth),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left Column: Live Status & Quick Actions
+                      SizedBox(
+                        width: 250,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Live Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                            const SizedBox(height: 6),
+                            _buildLeftOverview(stats),
+                            const SizedBox(height: 12),
+                            const Text('Quick Actions', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                            const SizedBox(height: 6),
+                            _buildLeftActions(isAdmin),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Right Column: Charts & Scrollable logs
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (isAdmin) ...[
+                              const Text('Analytics & Trends', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                              const SizedBox(height: 6),
+                              DashboardAnalyticsGrid(stats: stats),
+                              const SizedBox(height: 12),
+                            ],
+                            const Text('Recent Live Logs', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                            const SizedBox(height: 6),
+                            Expanded(
+                              child: _buildScrollableRecentEntries(stats),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
-                    SizedBox(height: AppTheme.sectionSpacing),
-                    _buildQuickActions(context, isAdmin),
-                    SizedBox(height: AppTheme.sectionSpacing),
-                    _buildRecentEntries(context, stats),
-                  ],
+                  ),
                 ),
+              ],
+            ),
+          );
+        } else {
+          // Mobile single vertical scroll
+          return RefreshIndicator(
+            onRefresh: () => stats.fetchStats(),
+            color: AppColors.primary,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(p),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeroHeader(context, auth),
+                  const SizedBox(height: 10),
+                  const Text('Live Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  const SizedBox(height: 6),
+                  _buildMobileStatsGrid(stats),
+                  const SizedBox(height: 12),
+                  if (isAdmin) ...[
+                    const Text('Analytics & Trends', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    const SizedBox(height: 6),
+                    DashboardAnalyticsGrid(stats: stats),
+                    const SizedBox(height: 12),
+                  ],
+                  _buildMobileActions(isAdmin),
+                  const SizedBox(height: 12),
+                  _buildMobileRecentEntries(stats),
+                ],
               ),
             ),
+          );
+        }
+      },
     );
   }
 
@@ -237,158 +343,257 @@ class _DashboardContent extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         gradient: DesignSystem.primaryGradient,
-        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        boxShadow: DesignSystem.softShadow,
+        borderRadius: BorderRadius.circular(6),
       ),
-      padding: const EdgeInsets.all(24),
-      child: Stack(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
         children: [
-          Positioned(
-            right: -20, top: -20,
-            child: Icon(Icons.waves, size: 100, color: Colors.white.withOpacity(0.1)),
+          Icon(Icons.precision_manufacturing_rounded, color: Colors.white.withOpacity(0.7), size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Welcome, ${auth.username ?? 'User'}',
+                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                Text('${auth.role ?? ''} • ${_formattedDate()}',
+                    style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11)),
+              ],
+            ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      (auth.role ?? 'Operator').toUpperCase(),
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2),
-                    ),
-                  ),
-                  Text(_formattedDate(), style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text('Welcome back,', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14)),
-              const SizedBox(height: 4),
-              Text(
-                auth.username ?? 'User',
-                style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-            ],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text('BHQ HEMM',
+                style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatsGrid(BuildContext context, DashboardProvider stats) {
+  // Left column metric list
+  Widget _buildLeftOverview(DashboardProvider stats) {
+    return Column(
+      children: [
+        _buildCompactStatTile("Today's Entries", stats.todayLiveEntriesCount.toString(), Icons.receipt_long_rounded, AppColors.primary),
+        const SizedBox(height: 4),
+        _buildCompactStatTile('Running', stats.runningEquipmentCount.toString(), Icons.play_circle_rounded, AppColors.running),
+        const SizedBox(height: 4),
+        _buildCompactStatTile('Idle', stats.idleEquipmentCount.toString(), Icons.pause_circle_rounded, AppColors.idle),
+        const SizedBox(height: 4),
+        _buildCompactStatTile('Breakdown', stats.breakdownEquipmentCount.toString(), Icons.warning_rounded, AppColors.breakdown),
+        const SizedBox(height: 4),
+        _buildCompactStatTile('Stoppage', stats.stoppageEquipmentCount.toString(), Icons.do_not_disturb_on_rounded, AppColors.stoppage),
+      ],
+    );
+  }
+
+  Widget _buildCompactStatTile(String label, String value, IconData icon, Color color) {
+    return Container(
+      height: 33,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(label, style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
+          ),
+          Text(value, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: color)),
+        ],
+      ),
+    );
+  }
+
+  // Left column quick actions
+  Widget _buildLeftActions(bool isAdmin) {
+    final actions = [
+      _buildCompactActionBtn('Live Entry', Icons.bolt_rounded, AppColors.accent, () => onNavigate(1)),
+      _buildCompactActionBtn('Summary Log', Icons.assignment_rounded, AppColors.primary, () => onNavigate(2)),
+      if (isAdmin) _buildCompactActionBtn('Reports', Icons.bar_chart_rounded, AppColors.running, () => onNavigate(3)),
+      if (isAdmin) _buildCompactActionBtn('Masters', Icons.settings_rounded, AppColors.stoppage, () => onNavigate(4)),
+    ];
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      crossAxisSpacing: 6,
+      mainAxisSpacing: 6,
+      childAspectRatio: 2.8,
+      children: actions,
+    );
+  }
+
+  Widget _buildCompactActionBtn(String label, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 13),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Scrollable logs inside right column
+  Widget _buildScrollableRecentEntries(DashboardProvider stats) {
+    if (stats.recentEntries.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox_rounded, size: 24, color: AppColors.textMuted),
+            SizedBox(height: 6),
+            Text('No entries logged yet today.', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: ListView.separated(
+          padding: const EdgeInsets.all(6),
+          itemCount: stats.recentEntries.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 4),
+          itemBuilder: (ctx, i) => _EntryCard(entry: stats.recentEntries[i]),
+        ),
+      ),
+    );
+  }
+
+  // Mobile layout components
+  Widget _buildMobileStatsGrid(DashboardProvider stats) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        _buildMobileStatCard("Today's Entries", stats.todayLiveEntriesCount.toString(), Icons.receipt_long_rounded, AppColors.primary),
+        _buildMobileStatCard('Running', stats.runningEquipmentCount.toString(), Icons.play_circle_rounded, AppColors.running),
+        _buildMobileStatCard('Idle', stats.idleEquipmentCount.toString(), Icons.pause_circle_rounded, AppColors.idle),
+        _buildMobileStatCard('Breakdown', stats.breakdownEquipmentCount.toString(), Icons.warning_rounded, AppColors.breakdown),
+        _buildMobileStatCard('Stoppage', stats.stoppageEquipmentCount.toString(), Icons.do_not_disturb_on_rounded, AppColors.stoppage),
+      ],
+    );
+  }
+
+  Widget _buildMobileStatCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      width: 100,
+      height: 44,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(value, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+                Text(title, style: const TextStyle(fontSize: 8, color: AppColors.textSecondary), overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileActions(bool isAdmin) {
+    final actions = [
+      _buildCompactActionBtn('Live Entry', Icons.bolt_rounded, AppColors.accent, () => onNavigate(1)),
+      _buildCompactActionBtn('Summary Log', Icons.assignment_rounded, AppColors.primary, () => onNavigate(2)),
+      if (isAdmin) _buildCompactActionBtn('Reports', Icons.bar_chart_rounded, AppColors.running, () => onNavigate(3)),
+      if (isAdmin) _buildCompactActionBtn('Masters', Icons.settings_rounded, AppColors.stoppage, () => onNavigate(4)),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Live Overview', style: DesignSystem.getTextTheme(context).titleLarge),
-        const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (ctx, constraints) {
-            final cols = constraints.maxWidth > 800 ? 5 : constraints.maxWidth > 500 ? 3 : 2;
-            return GridView.count(
-              crossAxisCount: cols,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 1.2,
-              children: [
-                _StatCard(title: "Today's Entries", value: stats.todayLiveEntriesCount.toString(),
-                    icon: Icons.receipt_long_rounded, color: AppColors.primary),
-                _StatCard(title: 'Running', value: stats.runningEquipmentCount.toString(),
-                    icon: Icons.play_circle_rounded, color: AppColors.running),
-                _StatCard(title: 'Idle', value: stats.idleEquipmentCount.toString(),
-                    icon: Icons.pause_circle_rounded, color: AppColors.idle),
-                _StatCard(title: 'Breakdown', value: stats.breakdownEquipmentCount.toString(),
-                    icon: Icons.warning_rounded, color: AppColors.breakdown),
-                _StatCard(title: 'Stoppage', value: stats.stoppageEquipmentCount.toString(),
-                    icon: Icons.do_not_disturb_on_rounded, color: AppColors.stoppage),
-              ],
-            );
-          },
+        const Text('Quick Actions', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: actions.map((a) => SizedBox(width: 100, height: 32, child: a)).toList(),
         ),
       ],
     );
   }
 
-  Widget _buildQuickActions(BuildContext context, bool isAdmin) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Quick Actions', style: DesignSystem.getTextTheme(context).titleLarge),
-        const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (ctx, constraints) {
-            final cols = constraints.maxWidth > 600 ? 4 : 2;
-            return GridView.count(
-              crossAxisCount: cols,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 2.5,
-              children: [
-                _ActionCard(label: 'Live Entry', icon: Icons.bolt_rounded, color: AppColors.accent,
-                    onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => const LiveEntryForm()))
-                        .then((_) => Provider.of<DashboardProvider>(context, listen: false).fetchStats()); }),
-                _ActionCard(label: 'Summary Log', icon: Icons.assignment_rounded, color: AppColors.primary,
-                    onTap: () { Navigator.push(context, MaterialPageRoute(builder: (_) => const SummaryLogForm()))
-                        .then((_) => Provider.of<DashboardProvider>(context, listen: false).fetchStats()); }),
-                if (isAdmin)
-                  _ActionCard(label: 'Reports', icon: Icons.bar_chart_rounded, color: AppColors.running,
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportsScreen()))),
-                if (isAdmin)
-                  _ActionCard(label: 'Masters', icon: Icons.settings_rounded, color: AppColors.stoppage,
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MastersScreen()))),
-              ],
-            );
-          }
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecentEntries(BuildContext context, DashboardProvider stats) {
+  Widget _buildMobileRecentEntries(DashboardProvider stats) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Recent Live Entries', style: DesignSystem.getTextTheme(context).titleLarge),
+            const Text('Recent Live Logs', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
             TextButton(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportsScreen())),
-              child: const Text('View All →', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+              onPressed: () => onNavigate(3),
+              child: const Text('View All →', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 11)),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         if (stats.recentEntries.isEmpty)
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: AppColors.bgCard,
-              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(color: AppColors.border),
             ),
-            child: const Column(children: [
-              Icon(Icons.inbox_rounded, size: 48, color: AppColors.textMuted),
-              SizedBox(height: 12),
-              Text('No entries logged yet today.', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-            ]),
+            child: const Center(child: Text('No logs recorded yet today.', style: TextStyle(color: AppColors.textSecondary, fontSize: 11))),
           )
         else
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: stats.recentEntries.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, __) => const SizedBox(height: 4),
             itemBuilder: (ctx, i) => _EntryCard(entry: stats.recentEntries[i]),
           ),
       ],
@@ -400,109 +605,6 @@ class _DashboardContent extends StatelessWidget {
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
     return '${days[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}';
-  }
-}
-
-// ─── Interactive Cards ────────────────────────────────────────────────────────
-
-class _StatCard extends StatefulWidget {
-  final String title, value;
-  final IconData icon;
-  final Color color;
-  const _StatCard({required this.title, required this.value, required this.icon, required this.color});
-
-  @override
-  State<_StatCard> createState() => _StatCardState();
-}
-
-class _StatCardState extends State<_StatCard> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        transform: Matrix4.identity()..translate(0.0, _isHovered ? -4.0 : 0.0),
-        decoration: BoxDecoration(
-          color: AppColors.bgCard,
-          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-          border: Border.all(color: AppColors.border),
-          boxShadow: _isHovered ? DesignSystem.hoverShadow : DesignSystem.softShadow,
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: widget.color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                  child: Icon(widget.icon, color: widget.color, size: 20),
-                ),
-                Text(widget.value, style: DesignSystem.getTextTheme(context).headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
-              ],
-            ),
-            Text(widget.title, style: DesignSystem.getTextTheme(context).bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionCard extends StatefulWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  const _ActionCard({required this.label, required this.icon, required this.color, required this.onTap});
-
-  @override
-  State<_ActionCard> createState() => _ActionCardState();
-}
-
-class _ActionCardState extends State<_ActionCard> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          transform: Matrix4.identity()..translate(0.0, _isHovered ? -2.0 : 0.0),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.bgCard,
-            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-            border: Border.all(color: AppColors.border),
-            boxShadow: _isHovered ? DesignSystem.hoverShadow : DesignSystem.softShadow,
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: widget.color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                child: Icon(widget.icon, color: widget.color, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: Text(widget.label, style: DesignSystem.getTextTheme(context).bodyMedium?.copyWith(fontWeight: FontWeight.w600))),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -543,44 +645,39 @@ class _EntryCard extends StatelessWidget {
     final act = entry['activityType'] as String?;
     final c = _color(act);
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-            child: Icon(_icon(act), color: c, size: 20),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(5)),
+            child: Icon(_icon(act), color: c, size: 12),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(entry['equipmentNumber'] ?? 'N/A', style: DesignSystem.getTextTheme(context).bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 2),
-                Text('${entry['operatorName'] ?? 'No operator'} • ${entry['projectName'] ?? ''}', 
-                  style: DesignSystem.getTextTheme(context).bodySmall, overflow: TextOverflow.ellipsis),
-              ],
-            ),
+            child: Text(entry['equipmentNumber'] ?? 'N/A',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                child: Text(act ?? '', style: TextStyle(color: c, fontSize: 10, fontWeight: FontWeight.w700)),
-              ),
-              const SizedBox(height: 4),
-              Text('${entry['hmrValue']} HMR', style: DesignSystem.getTextTheme(context).bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
-              Text(_time(entry['entryTimestamp']), style: DesignSystem.getTextTheme(context).labelSmall),
-            ],
+          Text('${entry['operatorName'] ?? ''} • ${entry['projectName'] ?? ''}',
+              style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+              overflow: TextOverflow.ellipsis),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+            decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+            child: Text(act ?? '', style: TextStyle(color: c, fontSize: 9, fontWeight: FontWeight.bold)),
           ),
+          const SizedBox(width: 8),
+          Text('${entry['hmrValue']} HMR',
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+          const SizedBox(width: 8),
+          Text(_time(entry['entryTimestamp']),
+              style: const TextStyle(fontSize: 9, color: AppColors.textMuted)),
         ],
       ),
     );

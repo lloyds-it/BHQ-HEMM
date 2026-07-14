@@ -147,18 +147,11 @@ public class DashboardController : ControllerBase
         var activities = new[] { ActivityTypes.Running, ActivityTypes.Idle, ActivityTypes.Breakdown, ActivityTypes.Stoppage };
         var shifts = new[] { "Shift A", "Shift B", "Shift C" };
 
-        var liveEntries = (await _unitOfWork.LiveEntries.GetAllAsync()).ToList();
-        int nextLiveId = liveEntries.Any() ? liveEntries.Max(e => e.EntryId) + 1 : 1;
-
-        var summaryLogs = (await _unitOfWork.SummaryLogs.GetAllAsync()).ToList();
-        int nextSummaryId = summaryLogs.Any() ? summaryLogs.Max(s => s.SummaryId) + 1 : 1;
-
         for (int i = 0; i < 100; i++)
         {
             // Seed Live Entry
             var liveEntry = new LiveEntry
             {
-                EntryId = nextLiveId++,
                 ProjectId = projects[random.Next(projects.Count)].ProjectId,
                 EquipmentId = equipments[random.Next(equipments.Count)].EquipmentId,
                 OperatorId = operators[random.Next(operators.Count)].OperatorId,
@@ -173,7 +166,6 @@ public class DashboardController : ControllerBase
             // Seed Summary Log
             var summary = new SummaryLog
             {
-                SummaryId = nextSummaryId++,
                 ProjectId = projects[random.Next(projects.Count)].ProjectId,
                 EquipmentId = equipments[random.Next(equipments.Count)].EquipmentId,
                 Date = DateTime.UtcNow.AddDays(-random.Next(1, 30)),

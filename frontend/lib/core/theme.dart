@@ -30,14 +30,14 @@ class AppColors {
 
 class AppTheme {
   static bool get isCompact => kIsWeb;
-  static double get pagePadding => isCompact ? 24.0 : 32.0;
-  static double get sectionSpacing => isCompact ? 24.0 : 32.0;
-  static double get cardRadius => 20.0;
-  static double get buttonHeight => isCompact ? 56.0 : 64.0;
-  static double get fieldSpacing => 24.0;
-  static double get cardPadding => 32.0;
-  static double get inputHorizontalPadding => 20.0;
-  static double get inputVerticalPadding => 20.0;
+  static double get pagePadding => 12.0;
+  static double get sectionSpacing => 10.0;
+  static double get cardRadius => 8.0;
+  static double get buttonHeight => 36.0;
+  static double get fieldSpacing => 8.0;
+  static double get cardPadding => 12.0;
+  static double get inputHorizontalPadding => 10.0;
+  static double get inputVerticalPadding => 8.0;
 
   static ThemeData get lightTheme {
     return ThemeData(

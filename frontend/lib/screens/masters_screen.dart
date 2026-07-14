@@ -8,7 +8,8 @@ import '../models/operator.dart';
 import '../widgets/logo_header.dart';
 
 class MastersScreen extends StatefulWidget {
-  const MastersScreen({super.key});
+  final bool isEmbed;
+  const MastersScreen({super.key, this.isEmbed = false});
 
   @override
   State<MastersScreen> createState() => _MastersScreenState();
@@ -41,6 +42,42 @@ class _MastersScreenState extends State<MastersScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final tabs = TabBar(
+      controller: _tabController,
+      labelColor: AppColors.primary,
+      unselectedLabelColor: AppColors.textSecondary,
+      indicatorColor: AppColors.primary,
+      indicatorWeight: 2,
+      dividerColor: Colors.transparent,
+      tabs: const [
+        Tab(icon: Icon(Icons.location_city_rounded, size: 16), text: 'Projects'),
+        Tab(icon: Icon(Icons.local_shipping_rounded, size: 16), text: 'Equipment'),
+        Tab(icon: Icon(Icons.people_rounded, size: 16), text: 'Operators'),
+      ],
+    );
+
+    final viewBody = TabBarView(
+      controller: _tabController,
+      children: [
+        _ProjectsMasterTab(refresh: _refreshAll),
+        _EquipmentMasterTab(refresh: _refreshAll),
+        _OperatorsMasterTab(refresh: _refreshAll),
+      ],
+    );
+
+    if (widget.isEmbed) {
+      return Column(
+        children: [
+          Container(
+            color: Colors.white,
+            child: tabs,
+          ),
+          Container(height: 1, color: AppColors.border),
+          Expanded(child: viewBody),
+        ],
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.bgPage,
       appBar: AppBar(
@@ -51,28 +88,9 @@ class _MastersScreenState extends State<MastersScreen> with SingleTickerProvider
             const Text('Master Data Management'),
           ],
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
-          indicatorColor: AppColors.primary,
-          indicatorWeight: 2,
-          dividerColor: Colors.transparent,
-          tabs: const [
-            Tab(icon: Icon(Icons.location_city_rounded, size: 16), text: 'Projects'),
-            Tab(icon: Icon(Icons.local_shipping_rounded, size: 16), text: 'Equipment'),
-            Tab(icon: Icon(Icons.people_rounded, size: 16), text: 'Operators'),
-          ],
-        ),
+        bottom: tabs,
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _ProjectsMasterTab(refresh: _refreshAll),
-          _EquipmentMasterTab(refresh: _refreshAll),
-          _OperatorsMasterTab(refresh: _refreshAll),
-        ],
-      ),
+      body: viewBody,
     );
   }
 }

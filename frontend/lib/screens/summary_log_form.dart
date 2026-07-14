@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../core/theme.dart';
@@ -10,10 +11,10 @@ import '../models/project.dart';
 import '../providers/master_provider.dart';
 import '../providers/entry_provider.dart';
 import '../widgets/searchable_dropdown.dart';
-import '../widgets/logo_header.dart';
 
 class SummaryLogForm extends StatefulWidget {
-  const SummaryLogForm({super.key});
+  final bool isEmbed;
+  const SummaryLogForm({super.key, this.isEmbed = false});
 
   @override
   State<SummaryLogForm> createState() => _SummaryLogFormState();
@@ -33,7 +34,7 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
 
   final _startHmrController = TextEditingController();
   final _endHmrController = TextEditingController();
-  
+
   double _calculatedTotalHmr = 0.0;
   double _calculatedClockHours = 0.0;
 
@@ -49,13 +50,64 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
 
   final _remarksController = TextEditingController();
 
+  // Focus nodes for keyboard sequential navigation
+  late final FocusNode _projectFocus = FocusNode(
+    onKeyEvent: (node, event) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.tab &&
+          !HardwareKeyboard.instance.isShiftPressed) {
+        _dateFocus.requestFocus();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    },
+  );
+  final FocusNode _dateFocus = FocusNode();
+  late final FocusNode _shiftFocus = FocusNode(
+    onKeyEvent: (node, event) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.tab &&
+          !HardwareKeyboard.instance.isShiftPressed) {
+        _equipmentFocus.requestFocus();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    },
+  );
+  final FocusNode _equipmentFocus = FocusNode();
+  final FocusNode _operatorFocus = FocusNode();
+  final FocusNode _startTimeFocus = FocusNode();
+  final FocusNode _endTimeFocus = FocusNode();
+  final FocusNode _startHmrFocus = FocusNode();
+  final FocusNode _endHmrFocus = FocusNode();
+  late final FocusNode _activityFocus = FocusNode(
+    onKeyEvent: (node, event) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.tab &&
+          !HardwareKeyboard.instance.isShiftPressed) {
+        _workDoneFocus.requestFocus();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    },
+  );
+  final FocusNode _workDoneFocus = FocusNode();
+  final FocusNode _locationFocus = FocusNode();
+  final FocusNode _dieselFocus = FocusNode();
+  final FocusNode _hydraulicFocus = FocusNode();
+  final FocusNode _engineFocus = FocusNode();
+  final FocusNode _transmissionFocus = FocusNode();
+  final FocusNode _gearFocus = FocusNode();
+  final FocusNode _remarksFocus = FocusNode();
+  final FocusNode _submitFocus = FocusNode();
+
   @override
   void initState() {
     super.initState();
     _startHmrController.addListener(_calculateTotalHmr);
     _endHmrController.addListener(_calculateTotalHmr);
     _calculateClockHours();
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
     });
@@ -89,6 +141,27 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
     _transmissionOilController.dispose();
     _gearOilController.dispose();
     _remarksController.dispose();
+
+    _projectFocus.dispose();
+    _dateFocus.dispose();
+    _shiftFocus.dispose();
+    _equipmentFocus.dispose();
+    _operatorFocus.dispose();
+    _startTimeFocus.dispose();
+    _endTimeFocus.dispose();
+    _startHmrFocus.dispose();
+    _endHmrFocus.dispose();
+    _activityFocus.dispose();
+    _workDoneFocus.dispose();
+    _locationFocus.dispose();
+    _dieselFocus.dispose();
+    _hydraulicFocus.dispose();
+    _engineFocus.dispose();
+    _transmissionFocus.dispose();
+    _gearFocus.dispose();
+    _remarksFocus.dispose();
+    _submitFocus.dispose();
+
     super.dispose();
   }
 
@@ -118,6 +191,7 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
       setState(() {
         _selectedDate = picked;
       });
+      _shiftFocus.requestFocus();
     }
   }
 
@@ -154,6 +228,12 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
           }
           _calculateClockHours();
         });
+
+        if (isStart) {
+          _endTimeFocus.requestFocus();
+        } else {
+          _startHmrFocus.requestFocus();
+        }
       }
     }
   }
@@ -162,37 +242,27 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedProject == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a project'), backgroundColor: AppColors.breakdown),
-      );
+      _showSnackbar('Please select a project', AppColors.breakdown);
       return;
     }
     if (_selectedEquipment == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select equipment'), backgroundColor: AppColors.breakdown),
-      );
+      _showSnackbar('Please select equipment', AppColors.breakdown);
       return;
     }
     if (_selectedOperator == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an operator'), backgroundColor: AppColors.breakdown),
-      );
+      _showSnackbar('Please select an operator', AppColors.breakdown);
       return;
     }
 
     if (_endTimestamp.isBefore(_startTimestamp)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('End time cannot be before start time'), backgroundColor: AppColors.breakdown),
-      );
+      _showSnackbar('End time cannot be before start time', AppColors.breakdown);
       return;
     }
 
     final startHmr = double.tryParse(_startHmrController.text) ?? 0.0;
     final endHmr = double.tryParse(_endHmrController.text) ?? 0.0;
     if (endHmr < startHmr) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('End HMR cannot be less than Start HMR'), backgroundColor: AppColors.breakdown),
-      );
+      _showSnackbar('End HMR cannot be less than Start HMR', AppColors.breakdown);
       return;
     }
 
@@ -221,191 +291,178 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
     final success = await entryProvider.addSummaryLog(log);
 
     if (success) {
-      if (mounted) {
-        await showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppColors.bgCard,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.cardRadius)),
-            title: const Row(
-              children: [
-                Icon(Icons.check_circle_outline_rounded, color: AppColors.running),
-                SizedBox(width: 8),
-                Text('Success', style: TextStyle(color: AppColors.running, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            content: const Text('Summary Log saved successfully!', style: TextStyle(color: AppColors.textPrimary)),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-        if (mounted) Navigator.pop(context);
-      }
+      _showSnackbar('Summary Log saved successfully!', AppColors.running);
+      _reset();
     } else {
-      if (mounted) {
-        final errorMsg = entryProvider.errorMessage ?? 'Failed to save summary log.';
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppColors.bgCard,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.cardRadius)),
-            title: const Row(
-              children: [
-                Icon(Icons.error_outline_rounded, color: AppColors.breakdown),
-                SizedBox(width: 8),
-                Text('Error', style: TextStyle(color: AppColors.breakdown, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            content: Text(errorMsg, style: const TextStyle(color: AppColors.textPrimary)),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
+      final errorMsg = entryProvider.errorMessage ?? 'Failed to save summary log.';
+      _showSnackbar(errorMsg, AppColors.breakdown);
+    }
+  }
+
+  void _reset() {
+    final masterProvider = Provider.of<MasterProvider>(context, listen: false);
+    setState(() {
+      if (masterProvider.projects.isNotEmpty) {
+        _selectedProject = masterProvider.projects.firstWhere(
+          (p) => p.projectName.toLowerCase() == 'bhq hedri',
+          orElse: () => masterProvider.projects.first,
         );
       }
-    }
+      _selectedEquipment = null;
+      _selectedOperator = null;
+      _startHmrController.clear();
+      _endHmrController.clear();
+      _workDoneController.clear();
+      _locationController.clear();
+      _dieselController.text = '0';
+      _hydraulicOilController.text = '0';
+      _engineOilController.text = '0';
+      _transmissionOilController.text = '0';
+      _gearOilController.text = '0';
+      _remarksController.clear();
+      _selectedActivity = AppConstants.activityRunning;
+      _startTimestamp = DateTime.now().subtract(const Duration(hours: 8));
+      _endTimestamp = DateTime.now();
+    });
+    _projectFocus.requestFocus();
+  }
+
+  void _showSnackbar(String msg, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+        backgroundColor: color,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final masterProvider = Provider.of<MasterProvider>(context);
     final entryProvider = Provider.of<EntryProvider>(context);
-    final p = AppTheme.pagePadding;
-    final fs = AppTheme.fieldSpacing;
-    final labelStyle = TextStyle(fontSize: AppTheme.isCompact ? 13 : 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary);
+    const p = 12.0;
 
-    return Scaffold(
-      backgroundColor: AppColors.bgPage,
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const LogoHeader(height: 24),
-            const SizedBox(width: 16),
-            Text('Summary Log Entry', style: DesignSystem.getTextTheme(context).headlineMedium),
-          ],
-        ),
-      ),
-      body: masterProvider.isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : SingleChildScrollView(
-              padding: EdgeInsets.all(p),
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 800),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+    final content = Form(
+      key: _formKey,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                decoration: DesignSystem.glassDecoration,
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Section 1 Header
+                    _sectionHeader('General & Crew Details', Icons.engineering_rounded),
+                    const Divider(color: AppColors.divider, height: 1),
+                    const SizedBox(height: 8),
+
+                    Row(
                       children: [
-                        // Section 1: Basic Info
-                        _buildSectionHeader('General Information', Icons.info_outline_rounded),
-                        _buildFormCard(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Project Name', style: labelStyle),
-                              const SizedBox(height: 4),
-                              DropdownButtonFormField<Project>(
-                                value: _selectedProject,
-                                decoration: const InputDecoration(
-                                  prefixIcon: Icon(Icons.location_on_outlined, size: 18),
-                                  hintText: 'Select Project',
+                              _label('Project Name'),
+                              const SizedBox(height: 3),
+                              SizedBox(
+                                height: 32,
+                                child: DropdownButtonFormField<Project>(
+                                  focusNode: _projectFocus,
+                                  value: _selectedProject,
+                                  isDense: true,
+                                  decoration: _inputDecor(Icons.location_on_outlined),
+                                  items: masterProvider.projects.map((proj) {
+                                    return DropdownMenuItem(
+                                        value: proj,
+                                        child: Text(proj.projectName, style: const TextStyle(fontSize: 12)));
+                                  }).toList(),
+                                  onChanged: (val) => setState(() => _selectedProject = val),
+                                  validator: (val) => val == null ? 'Required' : null,
                                 ),
-                                items: masterProvider.projects.map((proj) {
-                                  return DropdownMenuItem(value: proj, child: Text(proj.projectName));
-                                }).toList(),
-                                onChanged: (val) => setState(() => _selectedProject = val),
-                                validator: (val) => val == null ? 'Project is required' : null,
-                              ),
-                              SizedBox(height: fs),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Log Date', style: labelStyle),
-                                        const SizedBox(height: 4),
-                                        InkWell(
-                                          onTap: () => _selectDate(context),
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Container(
-                                            padding: EdgeInsets.symmetric(horizontal: AppTheme.inputHorizontalPadding, vertical: AppTheme.inputVerticalPadding),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.bgInput,
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(color: AppColors.border),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Expanded(child: Text(DateFormat('dd MMM yyyy').format(_selectedDate),
-                                                    style: TextStyle(fontSize: AppTheme.isCompact ? 12 : 13, color: AppColors.textPrimary))),
-                                                const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.textSecondary),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Shift', style: labelStyle),
-                                        const SizedBox(height: 4),
-                                        DropdownButtonFormField<String>(
-                                          value: _selectedShift,
-                                          decoration: const InputDecoration(
-                                            prefixIcon: Icon(Icons.work_history_outlined, size: 18),
-                                          ),
-                                          items: AppConstants.shifts.map((s) {
-                                            return DropdownMenuItem(value: s, child: Text(s));
-                                          }).toList(),
-                                          onChanged: (val) => setState(() => _selectedShift = val ?? 'Day'),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
                               ),
                             ],
                           ),
                         ),
-                        SizedBox(height: AppTheme.sectionSpacing),
-
-                        // Section 2: Equipment & Crew
-                        _buildSectionHeader('Equipment & Crew', Icons.engineering_outlined),
-                        _buildFormCard(
+                        const SizedBox(width: 8),
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Equipment Code / Truck Number', style: labelStyle),
-                              const SizedBox(height: 4),
+                              _label('Log Date'),
+                              const SizedBox(height: 3),
+                              _dateTile(_selectedDate, () => _selectDate(context), _dateFocus),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('Shift'),
+                              const SizedBox(height: 3),
+                              SizedBox(
+                                height: 32,
+                                child: DropdownButtonFormField<String>(
+                                  focusNode: _shiftFocus,
+                                  value: _selectedShift,
+                                  isDense: true,
+                                  decoration: _inputDecor(Icons.work_history_outlined),
+                                  items: AppConstants.shifts.map((s) {
+                                    return DropdownMenuItem(
+                                        value: s,
+                                        child: Text(s, style: const TextStyle(fontSize: 12)));
+                                  }).toList(),
+                                  onChanged: (val) => setState(() => _selectedShift = val ?? 'Day'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('Equipment / Truck Number'),
+                              const SizedBox(height: 3),
                               SearchableDropdown<Equipment>(
+                                focusNode: _equipmentFocus,
+                                nextFocusNode: _operatorFocus,
                                 items: masterProvider.equipment.where((e) => e.isActive).toList(),
                                 label: 'Search Equipment',
-                                searchHint: 'Search by number...',
+                                searchHint: 'Type code...',
                                 selectedItem: _selectedEquipment,
                                 itemAsString: (e) => e.equipmentNumber,
                                 searchMatcher: (e, q) => e.equipmentNumber.toLowerCase().contains(q.toLowerCase()),
                                 onChanged: (val) => setState(() => _selectedEquipment = val),
-                                validator: (val) => val == null ? 'Equipment is required' : null,
+                                validator: (val) => val == null ? 'Required' : null,
                               ),
-                              Text('Operator', style: labelStyle),
-                              const SizedBox(height: 4),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('Operator Name'),
+                              const SizedBox(height: 3),
                               SearchableDropdown<Operator>(
+                                focusNode: _operatorFocus,
+                                nextFocusNode: _startTimeFocus,
                                 items: masterProvider.operators.where((o) => o.isActive).toList(),
                                 label: 'Search Operator Name',
                                 searchHint: 'Search name...',
@@ -413,297 +470,449 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
                                 itemAsString: (o) => o.operatorName,
                                 searchMatcher: (o, q) => o.operatorName.toLowerCase().contains(q.toLowerCase()),
                                 onChanged: (val) => setState(() => _selectedOperator = val),
-                                validator: (val) => val == null ? 'Operator is required' : null,
+                                validator: (val) => val == null ? 'Required' : null,
                               ),
                             ],
                           ),
                         ),
-                        SizedBox(height: AppTheme.sectionSpacing),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
 
-                        // Section 3: Timestamps & HMR Calculations
-                        _buildSectionHeader('Timestamps & Running Hours', Icons.timer_outlined),
-                        _buildFormCard(
+                    // Section 2: Hours & Readings
+                    _sectionHeader('Hours & Readings', Icons.timer_outlined),
+                    const Divider(color: AppColors.divider, height: 1),
+                    const SizedBox(height: 8),
+
+                    Row(
+                      children: [
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Start Timestamp', style: labelStyle),
-                                        const SizedBox(height: 4),
-                                        _buildTimestampTile(_startTimestamp, () => _selectDateTimePicker(context, true)),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('End Timestamp', style: labelStyle),
-                                        const SizedBox(height: 4),
-                                        _buildTimestampTile(_endTimestamp, () => _selectDateTimePicker(context, false)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: fs),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Start HMR', style: labelStyle),
-                                        const SizedBox(height: 4),
-                                        TextFormField(
-                                          controller: _startHmrController,
-                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                          decoration: const InputDecoration(hintText: 'Start'),
-                                          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('End HMR', style: labelStyle),
-                                        const SizedBox(height: 4),
-                                        TextFormField(
-                                          controller: _endHmrController,
-                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                          decoration: const InputDecoration(hintText: 'End'),
-                                          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: fs),
-
-                              // Realtime Calculations Banner
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.04),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppColors.primary.withOpacity(0.08)),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text('Total HMR:', style: TextStyle(fontSize: AppTheme.isCompact ? 11 : 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-                                        Text('${_calculatedTotalHmr.toStringAsFixed(2)} hrs',
-                                          style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: AppTheme.isCompact ? 12 : 13)),
-                                      ],
-                                    ),
-                                    Divider(color: AppColors.border, height: fs),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text('Clock Hours:', style: TextStyle(fontSize: AppTheme.isCompact ? 11 : 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-                                        Text('${_calculatedClockHours.toStringAsFixed(2)} hrs',
-                                          style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: AppTheme.isCompact ? 12 : 13)),
-                                      ],
-                                    ),
-                                  ],
+                              _label('Start Time'),
+                              const SizedBox(height: 3),
+                              _timeTile(_startTimestamp, () => _selectDateTimePicker(context, true), _startTimeFocus),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('End Time'),
+                              const SizedBox(height: 3),
+                              _timeTile(_endTimestamp, () => _selectDateTimePicker(context, false), _endTimeFocus),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('Start HMR'),
+                              const SizedBox(height: 3),
+                              SizedBox(
+                                height: 32,
+                                child: TextFormField(
+                                  focusNode: _startHmrFocus,
+                                  controller: _startHmrController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  textInputAction: TextInputAction.next,
+                                  style: const TextStyle(fontSize: 12),
+                                  decoration: _inputDecor(Icons.speed_outlined).copyWith(hintText: 'Start'),
+                                  onFieldSubmitted: (_) => _endHmrFocus.requestFocus(),
+                                  validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        SizedBox(height: AppTheme.sectionSpacing),
-
-                        // Section 4: Activities
-                        _buildSectionHeader('Work Details', Icons.description_outlined),
-                        _buildFormCard(
+                        const SizedBox(width: 8),
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Activity Type', style: labelStyle),
-                              const SizedBox(height: 4),
-                              DropdownButtonFormField<String>(
-                                value: _selectedActivity,
-                                decoration: const InputDecoration(
-                                  prefixIcon: Icon(Icons.pending_actions, size: 18),
+                              _label('End HMR'),
+                              const SizedBox(height: 3),
+                              SizedBox(
+                                height: 32,
+                                child: TextFormField(
+                                  focusNode: _endHmrFocus,
+                                  controller: _endHmrController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  textInputAction: TextInputAction.next,
+                                  style: const TextStyle(fontSize: 12),
+                                  decoration: _inputDecor(Icons.speed_outlined).copyWith(hintText: 'End'),
+                                  onFieldSubmitted: (_) => _activityFocus.requestFocus(),
+                                  validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                                 ),
-                                items: AppConstants.activities.map((a) {
-                                  return DropdownMenuItem(value: a, child: Text(a));
-                                }).toList(),
-                                onChanged: (val) => setState(() => _selectedActivity = val ?? AppConstants.activityRunning),
-                              ),
-                              SizedBox(height: fs),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Work Done', style: labelStyle),
-                                        const SizedBox(height: 4),
-                                        TextFormField(
-                                          controller: _workDoneController,
-                                          decoration: const InputDecoration(hintText: 'e.g. Coal Excavation'),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Location', style: labelStyle),
-                                        const SizedBox(height: 4),
-                                        TextFormField(
-                                          controller: _locationController,
-                                          decoration: const InputDecoration(hintText: 'Bench L2 / North Dump'),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
                               ),
                             ],
                           ),
                         ),
-                        SizedBox(height: AppTheme.sectionSpacing),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
 
-                        // Section 5: Consumables & Oils
-                        _buildSectionHeader('Consumables & Oils Issued', Icons.local_gas_station_outlined),
-                        _buildFormCard(
+                    // Auto calculation results banner
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.primary.withOpacity(0.08)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Text(
+                            'Calculated Total HMR:  ${_calculatedTotalHmr.toStringAsFixed(2)} hrs',
+                            style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary, fontSize: 11),
+                          ),
+                          Container(width: 1, height: 12, color: AppColors.border),
+                          Text(
+                            'Clock Hours:  ${_calculatedClockHours.toStringAsFixed(2)} hrs',
+                            style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Section 3: Activities & Details
+                    _sectionHeader('Activity & Details', Icons.description_outlined),
+                    const Divider(color: AppColors.divider, height: 1),
+                    const SizedBox(height: 8),
+
+                    Row(
+                      children: [
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Diesel Issued (Litres)', style: labelStyle),
-                              const SizedBox(height: 4),
-                              TextFormField(
-                                controller: _dieselController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(hintText: '0'),
-                              ),
-                              SizedBox(height: fs),
-                              Row(
-                                children: [
-                                  Expanded(child: _compactField('Hydraulic Oil (L)', _hydraulicOilController, labelStyle)),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: _compactField('Engine Oil (L)', _engineOilController, labelStyle)),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(child: _compactField('Transmission Oil (L)', _transmissionOilController, labelStyle)),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: _compactField('Gear Oil (L)', _gearOilController, labelStyle)),
-                                ],
+                              _label('Activity Type'),
+                              const SizedBox(height: 3),
+                              SizedBox(
+                                height: 32,
+                                child: DropdownButtonFormField<String>(
+                                  focusNode: _activityFocus,
+                                  value: _selectedActivity,
+                                  isDense: true,
+                                  decoration: _inputDecor(Icons.pending_actions),
+                                  items: AppConstants.activities.map((a) {
+                                    return DropdownMenuItem(
+                                        value: a,
+                                        child: Text(a, style: const TextStyle(fontSize: 12)));
+                                  }).toList(),
+                                  onChanged: (val) => setState(() => _selectedActivity = val ?? AppConstants.activityRunning),
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        SizedBox(height: AppTheme.sectionSpacing),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('Work Done'),
+                              const SizedBox(height: 3),
+                              SizedBox(
+                                height: 32,
+                                child: TextFormField(
+                                  focusNode: _workDoneFocus,
+                                  controller: _workDoneController,
+                                  textInputAction: TextInputAction.next,
+                                  style: const TextStyle(fontSize: 12),
+                                  decoration: _inputDecor(Icons.edit_note_outlined).copyWith(hintText: 'Coal excavation...'),
+                                  onFieldSubmitted: (_) => _locationFocus.requestFocus(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('Location'),
+                              const SizedBox(height: 3),
+                              SizedBox(
+                                height: 32,
+                                child: TextFormField(
+                                  focusNode: _locationFocus,
+                                  controller: _locationController,
+                                  textInputAction: TextInputAction.next,
+                                  style: const TextStyle(fontSize: 12),
+                                  decoration: _inputDecor(Icons.map_outlined).copyWith(hintText: 'Bench L3 / Pit B'),
+                                  onFieldSubmitted: (_) => _dieselFocus.requestFocus(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
 
-                        // Section 6: Remarks
-                        _buildSectionHeader('Shift Remarks', Icons.comment_bank_outlined),
-                        _buildFormCard(
-                          child: TextFormField(
-                            controller: _remarksController,
-                            maxLines: 2,
-                            decoration: const InputDecoration(
-                              hintText: 'Enter shift remarks here...',
-                              alignLabelWithHint: true,
+                    // Section 4: Fuel & Consumables
+                    _sectionHeader('Fuel & Consumables Issued', Icons.local_gas_station_outlined),
+                    const Divider(color: AppColors.divider, height: 1),
+                    const SizedBox(height: 8),
+
+                    Row(
+                      children: [
+                        Expanded(child: _compactTextForm('Diesel (L)', _dieselController, _dieselFocus, _hydraulicFocus)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _compactTextForm('Hydraulic Oil (L)', _hydraulicOilController, _hydraulicFocus, _engineFocus)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _compactTextForm('Engine Oil (L)', _engineOilController, _engineFocus, _transmissionFocus)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _compactTextForm('Transmission (L)', _transmissionOilController, _transmissionFocus, _gearFocus)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _compactTextForm('Gear Oil (L)', _gearOilController, _gearFocus, _remarksFocus)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Section 5: Remarks
+                    _sectionHeader('Shift Remarks', Icons.comment_bank_outlined),
+                    const Divider(color: AppColors.divider, height: 1),
+                    const SizedBox(height: 8),
+
+                    SizedBox(
+                      height: 48,
+                      child: TextFormField(
+                        focusNode: _remarksFocus,
+                        controller: _remarksController,
+                        style: const TextStyle(fontSize: 12),
+                        maxLines: 2,
+                        decoration: _inputDecor(Icons.comment_outlined).copyWith(hintText: 'Enter shift observations...'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Actions
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 30,
+                            child: OutlinedButton(
+                              onPressed: _reset,
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                              child: const Text('Reset'),
                             ),
                           ),
                         ),
-                        SizedBox(height: AppTheme.sectionSpacing + 8),
-
-                        // Save Button
-                        entryProvider.isLoading
-                            ? const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
-                            : ElevatedButton(
-                                onPressed: _submit,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                ),
-                                child: const Text('Save Summary Log'),
-                              ),
-                        const SizedBox(height: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SizedBox(
+                            height: 30,
+                            child: entryProvider.isLoading
+                                ? const Center(
+                                    child: SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                    ),
+                                  )
+                                : ElevatedButton(
+                                    focusNode: _submitFocus,
+                                    onPressed: _submit,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      foregroundColor: Colors.white,
+                                      padding: EdgeInsets.zero,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                      elevation: 0,
+                                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    ),
+                                    child: const Text('Save Summary Log'),
+                                  ),
+                          ),
+                        ),
                       ],
                     ),
-                  ),
+                  ],
                 ),
               ),
-            ),
-    );
-  }
-
-  Widget _buildTimestampTile(DateTime timestamp, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: AppTheme.inputHorizontalPadding, vertical: AppTheme.inputVerticalPadding),
-        decoration: BoxDecoration(
-          color: AppColors.bgInput,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                DateFormat('dd MMM, HH:mm').format(timestamp),
-                style: TextStyle(fontSize: AppTheme.isCompact ? 11 : 12, color: AppColors.textPrimary),
-              ),
-            ),
-            const Icon(Icons.date_range_outlined, size: 14, color: AppColors.textSecondary),
-          ],
+            ],
+          ),
         ),
       ),
     );
-  }
 
-  Widget _compactField(String label, TextEditingController controller, TextStyle labelStyle) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: labelStyle.copyWith(color: AppColors.textSecondary)),
-        const SizedBox(height: 4),
-        TextFormField(controller: controller, keyboardType: TextInputType.number),
-      ],
+    if (widget.isEmbed) {
+      return Padding(
+        padding: const EdgeInsets.all(p),
+        child: SingleChildScrollView(child: content),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.bgPage,
+      appBar: AppBar(
+        title: const Text('Summary Log Entry', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+        elevation: 0,
+      ),
+      body: masterProvider.isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(p),
+              child: content,
+            ),
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon) {
+  Widget _sectionHeader(String title, IconData icon) {
     return Padding(
-      padding: const EdgeInsets.only(left: 2.0, bottom: 6.0, top: 4.0),
+      padding: const EdgeInsets.only(bottom: 5, top: 4),
       child: Row(
         children: [
-          Icon(icon, size: 14, color: AppColors.textSecondary),
+          Icon(icon, size: 13, color: AppColors.textSecondary),
           const SizedBox(width: 5),
-          Text(title, style: DesignSystem.getTextTheme(context).titleMedium?.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildFormCard({required Widget child}) {
-    return Container(
-      decoration: DesignSystem.glassDecoration,
-      padding: EdgeInsets.all(AppTheme.cardPadding),
-      child: child,
+  Widget _label(String text) {
+    return Text(
+      text,
+      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+    );
+  }
+
+  Widget _dateTile(DateTime date, VoidCallback onTap, FocusNode node) {
+    return Focus(
+      focusNode: node,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter || event.logicalKey == LogicalKeyboardKey.space)) {
+          onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(5),
+        child: Container(
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: node.hasFocus ? AppColors.primary : AppColors.border),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                DateFormat('dd MMM yyyy').format(date),
+                style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
+              ),
+              const Icon(Icons.calendar_today_outlined, size: 12, color: AppColors.textSecondary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _timeTile(DateTime dt, VoidCallback onTap, FocusNode node) {
+    return Focus(
+      focusNode: node,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter || event.logicalKey == LogicalKeyboardKey.space)) {
+          onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(5),
+        child: Container(
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: node.hasFocus ? AppColors.primary : AppColors.border),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                DateFormat('dd MMM, HH:mm').format(dt),
+                style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
+              ),
+              const Icon(Icons.access_time_outlined, size: 12, color: AppColors.textSecondary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _compactTextForm(String title, TextEditingController ctrl, FocusNode focus, FocusNode nextFocus) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label(title),
+        const SizedBox(height: 3),
+        SizedBox(
+          height: 32,
+          child: TextFormField(
+            focusNode: focus,
+            controller: ctrl,
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.next,
+            style: const TextStyle(fontSize: 12),
+            decoration: _inputDecor(Icons.oil_barrel_outlined),
+            onFieldSubmitted: (_) => nextFocus.requestFocus(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _inputDecor(IconData icon) {
+    return InputDecoration(
+      prefixIcon: Icon(icon, size: 14, color: AppColors.textSecondary),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(5),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(5),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(5),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(5),
+        borderSide: const BorderSide(color: AppColors.breakdown),
+      ),
     );
   }
 }

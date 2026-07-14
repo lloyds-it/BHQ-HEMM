@@ -17,7 +17,12 @@ void main() async {
   final authProvider = AuthProvider();
   
   // Try auto-login before rendering the app to prevent screen flickering
-  await authProvider.tryAutoLogin();
+  try {
+    await authProvider.tryAutoLogin();
+  } catch (e) {
+    // Catch any startup exception to prevent app crash
+    debugPrint("Error trying auto login: $e");
+  }
 
   runApp(
     MultiProvider(

@@ -11,7 +11,7 @@ class AppConstants {
       return 'https://taskai.lloyds.in/hemm/api';
     }
     if (Platform.isAndroid) {
-      // Changed to the PC's Wi-Fi IP address so the APK works on a real device
+      // Now points to the production Linux server
       return realDeviceApiUrl;
     }
     if (Platform.isIOS) {
@@ -20,10 +20,9 @@ class AppConstants {
     return 'http://localhost:5100/api';
   }
 
-  /// Use this IP when running on a REAL physical Android/iOS device.
-  /// Your PC must be on the same WiFi network as the device.
-  static const String realDeviceIp = '172.52.1.1';
-  static const String realDeviceApiUrl = 'http://172.52.1.1:5100/api';
+  /// Production server URL - works from anywhere with internet access.
+  static const String realDeviceIp = 'taskai.lloyds.in';
+  static const String realDeviceApiUrl = 'https://taskai.lloyds.in/hemm/api';
 
   static const String roleAdmin = 'Admin';
   static const String roleSupervisor = 'Supervisor';

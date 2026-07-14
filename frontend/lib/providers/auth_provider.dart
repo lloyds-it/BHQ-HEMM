@@ -5,7 +5,9 @@ import '../core/api_client.dart';
 
 class AuthProvider with ChangeNotifier {
   final ApiClient _apiClient = ApiClient();
-  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -20,11 +22,22 @@ class AuthProvider with ChangeNotifier {
   bool get isAuthenticated => _isAuthenticated;
 
   Future<void> tryAutoLogin() async {
-    await _apiClient.init();
-    if (_apiClient.token != null) {
-      _username = await _secureStorage.read(key: 'username');
-      _role = await _secureStorage.read(key: 'role');
-      _isAuthenticated = true;
+    try {
+      await _apiClient.init();
+      if (_apiClient.token != null) {
+        _username = await _secureStorage.read(key: 'username');
+        _role = await _secureStorage.read(key: 'role');
+        _isAuthenticated = true;
+        notifyListeners();
+      }
+    } catch (e) {
+      // If decryption fails, clear all stored data to recover from keystore corruption
+      try {
+        await _secureStorage.deleteAll();
+      } catch (_) {}
+      _username = null;
+      _role = null;
+      _isAuthenticated = false;
       notifyListeners();
     }
   }

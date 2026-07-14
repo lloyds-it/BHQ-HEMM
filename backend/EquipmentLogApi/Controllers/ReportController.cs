@@ -58,7 +58,19 @@ public class ReportController : ControllerBase
 
         var sortedEntries = entries.OrderBy(e => e.EntryTimestamp).ToList();
 
-        if (filter.Format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
+        if (filter.Format.Equals("json", StringComparison.OrdinalIgnoreCase))
+        {
+            return Ok(sortedEntries.Select(e => new {
+                e.EntryId,
+                Project = e.Project?.ProjectName ?? "N/A",
+                Equipment = e.Equipment?.EquipmentNumber ?? "N/A",
+                Operator = e.Operator?.OperatorName ?? "N/A",
+                Timestamp = e.EntryTimestamp,
+                HmrValue = e.HMRValue,
+                ActivityType = e.ActivityType
+            }));
+        }
+        else if (filter.Format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
         {
             var pdfBytes = _reportService.GenerateLiveEntryPdf(sortedEntries);
             return File(pdfBytes, "application/pdf", $"LiveEntries_{DateTime.Now:yyyyMMdd}.pdf");
@@ -111,7 +123,26 @@ public class ReportController : ControllerBase
 
         var sortedLogs = logs.OrderBy(l => l.Date).ThenBy(l => l.StartTimestamp).ToList();
 
-        if (filter.Format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
+        if (filter.Format.Equals("json", StringComparison.OrdinalIgnoreCase))
+        {
+            return Ok(sortedLogs.Select(l => new {
+                l.SummaryId,
+                Project = l.Project?.ProjectName ?? "N/A",
+                Date = l.Date,
+                l.Shift,
+                Equipment = l.Equipment?.EquipmentNumber ?? "N/A",
+                Operator = l.Operator?.OperatorName ?? "N/A",
+                l.StartHmr,
+                l.EndHmr,
+                l.TotalHmr,
+                l.ClockHours,
+                l.ActivityType,
+                l.Diesel,
+                l.WorkDone,
+                l.Location
+            }));
+        }
+        else if (filter.Format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
         {
             var pdfBytes = _reportService.GenerateSummaryLogPdf(sortedLogs);
             return File(pdfBytes, "application/pdf", $"SummaryLogs_{DateTime.Now:yyyyMMdd}.pdf");
@@ -141,7 +172,16 @@ public class ReportController : ControllerBase
 
         var list = equipment.OrderBy(eq => eq.EquipmentNumber).ToList();
 
-        if (format != null && format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
+        if (format != null && format.Equals("json", StringComparison.OrdinalIgnoreCase))
+        {
+            return Ok(list.Select(eq => new {
+                eq.EquipmentId,
+                eq.EquipmentNumber,
+                Project = eq.Project?.ProjectName ?? "N/A",
+                Status = eq.IsActive ? "Active" : "Inactive"
+            }));
+        }
+        else if (format != null && format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
         {
             var pdfBytes = _reportService.GenerateEquipmentPdf(list);
             return File(pdfBytes, "application/pdf", $"Equipment_{DateTime.Now:yyyyMMdd}.pdf");
@@ -159,7 +199,16 @@ public class ReportController : ControllerBase
         var operators = await _unitOfWork.Operators.GetAllAsync();
         var list = operators.OrderBy(op => op.OperatorName).ToList();
 
-        if (format != null && format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
+        if (format != null && format.Equals("json", StringComparison.OrdinalIgnoreCase))
+        {
+            return Ok(list.Select(op => new {
+                op.OperatorId,
+                op.OperatorName,
+                op.Mobile,
+                Status = op.IsActive ? "Active" : "Inactive"
+            }));
+        }
+        else if (format != null && format.Equals("pdf", StringComparison.OrdinalIgnoreCase))
         {
             var pdfBytes = _reportService.GenerateOperatorPdf(list);
             return File(pdfBytes, "application/pdf", $"Operators_{DateTime.Now:yyyyMMdd}.pdf");

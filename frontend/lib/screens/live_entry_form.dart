@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../core/constants.dart';
@@ -9,10 +10,10 @@ import '../models/project.dart';
 import '../providers/master_provider.dart';
 import '../providers/entry_provider.dart';
 import '../widgets/searchable_dropdown.dart';
-import '../widgets/logo_header.dart';
 
 class LiveEntryForm extends StatefulWidget {
-  const LiveEntryForm({super.key});
+  final bool isEmbed;
+  const LiveEntryForm({super.key, this.isEmbed = false});
 
   @override
   State<LiveEntryForm> createState() => _LiveEntryFormState();
@@ -20,12 +21,40 @@ class LiveEntryForm extends StatefulWidget {
 
 class _LiveEntryFormState extends State<LiveEntryForm> {
   final _formKey = GlobalKey<FormState>();
-  
+
   Project? _selectedProject;
   Equipment? _selectedEquipment;
   Operator? _selectedOperator;
   final _hmrController = TextEditingController();
   String _selectedActivity = AppConstants.activityRunning;
+
+  // Keyboard navigation focus nodes
+  late final FocusNode _projectFocus = FocusNode(
+    onKeyEvent: (node, event) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.tab &&
+          !HardwareKeyboard.instance.isShiftPressed) {
+        _equipmentFocus.requestFocus();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    },
+  );
+  final FocusNode _equipmentFocus = FocusNode();
+  final FocusNode _operatorFocus = FocusNode();
+  final FocusNode _hmrFocus = FocusNode();
+  late final FocusNode _activityFocus = FocusNode(
+    onKeyEvent: (node, event) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.tab &&
+          !HardwareKeyboard.instance.isShiftPressed) {
+        _submitFocus.requestFocus();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    },
+  );
+  final FocusNode _submitFocus = FocusNode();
 
   @override
   void initState() {
@@ -39,8 +68,8 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
     final masterProvider = Provider.of<MasterProvider>(context, listen: false);
     await masterProvider.fetchProjects();
     await masterProvider.fetchEquipment();
-    
-    // Set default project to 'BHQ Hedri' or first available
+    await masterProvider.fetchOperators(); // Fetch operators so they load correctly
+
     if (masterProvider.projects.isNotEmpty) {
       setState(() {
         _selectedProject = masterProvider.projects.firstWhere(
@@ -54,6 +83,12 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
   @override
   void dispose() {
     _hmrController.dispose();
+    _projectFocus.dispose();
+    _equipmentFocus.dispose();
+    _operatorFocus.dispose();
+    _hmrFocus.dispose();
+    _activityFocus.dispose();
+    _submitFocus.dispose();
     super.dispose();
   }
 
@@ -88,29 +123,22 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
       _hmrController.clear();
       _selectedActivity = AppConstants.activityRunning;
     });
+    _projectFocus.requestFocus();
   }
 
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedProject == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a project'), backgroundColor: AppColors.breakdown),
-      );
+      _showSnackbar('Please select a project', AppColors.breakdown);
       return;
     }
-
     if (_selectedEquipment == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select equipment'), backgroundColor: AppColors.breakdown),
-      );
+      _showSnackbar('Please select equipment', AppColors.breakdown);
       return;
     }
-
     if (_selectedOperator == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an operator'), backgroundColor: AppColors.breakdown),
-      );
+      _showSnackbar('Please select an operator', AppColors.breakdown);
       return;
     }
 
@@ -127,249 +155,288 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
     final success = await entryProvider.addLiveEntry(entry);
 
     if (success) {
-      if (mounted) {
-        await showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppColors.bgCard,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.cardRadius)),
-            title: const Row(
-              children: [
-                Icon(Icons.check_circle_outline_rounded, color: AppColors.running),
-                SizedBox(width: 8),
-                Text('Success', style: TextStyle(color: AppColors.running, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            content: const Text('Live Entry saved successfully!', style: TextStyle(color: AppColors.textPrimary)),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-        if (mounted) _reset();
-      }
+      _showSnackbar('Live Entry saved successfully!', AppColors.running);
+      _reset();
     } else {
-      if (mounted) {
-        final errorMsg = entryProvider.errorMessage ?? 'Failed to save live entry.';
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppColors.bgCard,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.cardRadius)),
-            title: const Row(
-              children: [
-                Icon(Icons.error_outline_rounded, color: AppColors.breakdown),
-                SizedBox(width: 8),
-                Text('Error', style: TextStyle(color: AppColors.breakdown, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            content: Text(errorMsg, style: const TextStyle(color: AppColors.textPrimary)),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx),
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      }
+      final errorMsg = entryProvider.errorMessage ?? 'Failed to save live entry.';
+      _showSnackbar(errorMsg, AppColors.breakdown);
     }
+  }
+
+  void _showSnackbar(String msg, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+        backgroundColor: color,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final masterProvider = Provider.of<MasterProvider>(context);
     final entryProvider = Provider.of<EntryProvider>(context);
-    final p = AppTheme.pagePadding;
-    final fs = AppTheme.fieldSpacing;
-    final labelStyle = TextStyle(fontSize: AppTheme.isCompact ? 13 : 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary);
+    const p = 12.0;
 
-    return Scaffold(
-      backgroundColor: AppColors.bgPage,
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const LogoHeader(height: 24),
-            const SizedBox(width: 16),
-            Text('Live Data Entry', style: DesignSystem.getTextTheme(context).headlineMedium),
-          ],
-        ),
-      ),
-      body: masterProvider.isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : SingleChildScrollView(
-              padding: EdgeInsets.all(p),
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 640),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        _buildFormCard(masterProvider, entryProvider, labelStyle, fs),
-                      ],
+    final content = Form(
+      key: _formKey,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: Container(
+            decoration: DesignSystem.glassDecoration,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header row
+                Row(
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.bolt_rounded, color: AppColors.primary, size: 14),
                     ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Log Equipment Status',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Divider(color: AppColors.divider, height: 1),
+                const SizedBox(height: 8),
+
+                // Project
+                _label('Project Name'),
+                const SizedBox(height: 3),
+                SizedBox(
+                  height: 32,
+                  child: DropdownButtonFormField<Project>(
+                    focusNode: _projectFocus,
+                    value: _selectedProject,
+                    isDense: true,
+                    decoration: _inputDecor(Icons.location_on_outlined),
+                    items: masterProvider.projects.map((proj) {
+                      return DropdownMenuItem(
+                          value: proj,
+                          child: Text(proj.projectName, style: const TextStyle(fontSize: 12)));
+                    }).toList(),
+                    onChanged: (val) => setState(() => _selectedProject = val),
+                    validator: (value) => value == null ? 'Required' : null,
                   ),
                 ),
-              ),
-            ),
-    );
-  }
+                const SizedBox(height: 8),
 
-  Widget _buildFormCard(MasterProvider masterProvider, EntryProvider entryProvider, TextStyle labelStyle, double fs) {
-    final cp = AppTheme.cardPadding;
-    return Container(
-      decoration: DesignSystem.glassDecoration,
-      padding: EdgeInsets.all(cp),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(7)),
-                child: const Icon(Icons.bolt_rounded, color: AppColors.primary, size: 16),
-              ),
-              const SizedBox(width: 8),
-              Text('Log Equipment Status',
-                style: TextStyle(fontSize: AppTheme.isCompact ? 14 : 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-            ],
-          ),
-          SizedBox(height: fs),
-          const Divider(color: AppColors.divider, height: 1),
-          SizedBox(height: fs),
+                // Equipment Searchable Dropdown
+                _label('Equipment / Truck Number'),
+                const SizedBox(height: 3),
+                SearchableDropdown<Equipment>(
+                  focusNode: _equipmentFocus,
+                  nextFocusNode: _operatorFocus,
+                  items: masterProvider.equipment.where((e) => e.isActive).toList(),
+                  label: 'Search Equipment Number',
+                  searchHint: 'Type code...',
+                  selectedItem: _selectedEquipment,
+                  itemAsString: (eq) => eq.equipmentNumber,
+                  searchMatcher: (eq, query) => eq.equipmentNumber.toLowerCase().contains(query.toLowerCase()),
+                  onChanged: _onEquipmentSelected,
+                  validator: (value) => value == null ? 'Required' : null,
+                ),
+                const SizedBox(height: 8),
 
-          Text('Project Name', style: DesignSystem.getTextTheme(context).labelMedium?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          DropdownButtonFormField<Project>(
-            value: _selectedProject,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.location_on_outlined, size: 18),
-              hintText: 'Select Project',
-            ),
-            items: masterProvider.projects.map((proj) {
-              return DropdownMenuItem(value: proj, child: Text(proj.projectName));
-            }).toList(),
-            onChanged: (val) => setState(() => _selectedProject = val),
-            validator: (value) => value == null ? 'Project is required' : null,
-          ),
-          SizedBox(height: fs),
+                // Operator Searchable Dropdown
+                _label('Operator Name'),
+                const SizedBox(height: 3),
+                SearchableDropdown<Operator>(
+                  focusNode: _operatorFocus,
+                  nextFocusNode: _hmrFocus,
+                  items: masterProvider.operators.where((o) => o.isActive).toList(),
+                  label: 'Search Operator Name',
+                  searchHint: 'Search name...',
+                  selectedItem: _selectedOperator,
+                  itemAsString: (o) => o.operatorName,
+                  searchMatcher: (o, q) => o.operatorName.toLowerCase().contains(q.toLowerCase()),
+                  onChanged: (val) => setState(() => _selectedOperator = val),
+                  validator: (val) => val == null ? 'Required' : null,
+                ),
+                const SizedBox(height: 8),
 
-          Text('Equipment / Truck Number', style: DesignSystem.getTextTheme(context).labelMedium?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          SearchableDropdown<Equipment>(
-            items: masterProvider.equipment.where((e) => e.isActive).toList(),
-            label: 'Search Equipment Number',
-            searchHint: 'Type to search by code...',
-            selectedItem: _selectedEquipment,
-            itemAsString: (eq) => eq.equipmentNumber,
-            searchMatcher: (eq, query) => eq.equipmentNumber.toLowerCase().contains(query.toLowerCase()),
-            onChanged: _onEquipmentSelected,
-            validator: (value) => value == null ? 'Equipment is required' : null,
-          ),
-
-          Text('Operator Name', style: DesignSystem.getTextTheme(context).labelMedium?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          SearchableDropdown<Operator>(
-            items: masterProvider.operators.where((o) => o.isActive).toList(),
-            label: 'Search Operator Name',
-            searchHint: 'Search name...',
-            selectedItem: _selectedOperator,
-            itemAsString: (o) => o.operatorName,
-            searchMatcher: (o, q) => o.operatorName.toLowerCase().contains(q.toLowerCase()),
-            onChanged: (val) => setState(() => _selectedOperator = val),
-            validator: (val) => val == null ? 'Operator is required' : null,
-          ),
-          SizedBox(height: fs),
-
-          Text('HMR / KMR Value', style: DesignSystem.getTextTheme(context).labelMedium?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          TextFormField(
-            controller: _hmrController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              hintText: 'Enter current reading',
-              prefixIcon: Icon(Icons.speed_outlined, size: 18),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Reading is required';
-              if (double.tryParse(value) == null) return 'Must be a valid decimal number';
-              return null;
-            },
-          ),
-          SizedBox(height: fs),
-
-          Text('Activity Type', style: DesignSystem.getTextTheme(context).labelMedium?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          DropdownButtonFormField<String>(
-            value: _selectedActivity,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.pending_actions_outlined, size: 18),
-            ),
-            items: AppConstants.activities.map((act) {
-              return DropdownMenuItem(value: act, child: Text(act));
-            }).toList(),
-            onChanged: (val) => setState(() => _selectedActivity = val ?? AppConstants.activityRunning),
-          ),
-          SizedBox(height: fs),
-
-          // Autogenerated Time Banner
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.primary.withOpacity(0.10)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 14),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Timestamp auto-set to current date & time on submission.',
-                    style: TextStyle(color: AppColors.primary, fontSize: AppTheme.isCompact ? 10 : 11, fontWeight: FontWeight.w500),
+                // HMR Value
+                _label('HMR / KMR Value'),
+                const SizedBox(height: 3),
+                SizedBox(
+                  height: 32,
+                  child: TextFormField(
+                    focusNode: _hmrFocus,
+                    controller: _hmrController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    textInputAction: TextInputAction.next,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: _inputDecor(Icons.speed_outlined).copyWith(hintText: 'Enter current reading'),
+                    onFieldSubmitted: (_) => _activityFocus.requestFocus(),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Required';
+                      if (double.tryParse(value) == null) return 'Invalid decimal';
+                      return null;
+                    },
                   ),
+                ),
+                const SizedBox(height: 8),
+
+                // Activity Dropdown
+                _label('Activity Type'),
+                const SizedBox(height: 3),
+                SizedBox(
+                  height: 32,
+                  child: DropdownButtonFormField<String>(
+                    focusNode: _activityFocus,
+                    value: _selectedActivity,
+                    isDense: true,
+                    decoration: _inputDecor(Icons.pending_actions_outlined),
+                    items: AppConstants.activities.map((act) {
+                      return DropdownMenuItem(
+                          value: act,
+                          child: Text(act, style: const TextStyle(fontSize: 12)));
+                    }).toList(),
+                    onChanged: (val) => setState(() => _selectedActivity = val ?? AppConstants.activityRunning),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Timestamp Alert
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.1)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: AppColors.primary, size: 12),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Timestamp will be auto-set on submission.',
+                          style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Actions row
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 30,
+                        child: OutlinedButton(
+                          onPressed: _reset,
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                          child: const Text('Reset'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: SizedBox(
+                        height: 30,
+                        child: entryProvider.isLoading
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                ),
+                              )
+                            : ElevatedButton(
+                                focusNode: _submitFocus,
+                                onPressed: _submit,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.zero,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  elevation: 0,
+                                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                                child: const Text('Save Log'),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          SizedBox(height: fs + 4),
+        ),
+      ),
+    );
 
-          // Actions
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _reset,
-                  child: const Text('Reset'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: entryProvider.isLoading
-                    ? const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
-                    : ElevatedButton(
-                        onPressed: _submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                        ),
-                        child: const Text('Save Log'),
-                      ),
-              ),
-            ],
-          ),
-        ],
+    if (widget.isEmbed) {
+      return Padding(
+        padding: const EdgeInsets.all(p),
+        child: SingleChildScrollView(child: content),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.bgPage,
+      appBar: AppBar(
+        title: const Text('Live Data Entry', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+        elevation: 0,
+      ),
+      body: masterProvider.isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(p),
+              child: content,
+            ),
+    );
+  }
+
+  Widget _label(String text) {
+    return Text(
+      text,
+      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+    );
+  }
+
+  InputDecoration _inputDecor(IconData icon) {
+    return InputDecoration(
+      prefixIcon: Icon(icon, size: 14, color: AppColors.textSecondary),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(5),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(5),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(5),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(5),
+        borderSide: const BorderSide(color: AppColors.breakdown),
       ),
     );
   }

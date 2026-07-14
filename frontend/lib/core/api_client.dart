@@ -16,10 +16,20 @@ class ApiClient {
   final http.Client _httpClient = http.Client();
   static const Duration _timeout = Duration(seconds: 15);
 
-  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   Future<void> init() async {
-    _token = await _secureStorage.read(key: 'jwt_token');
+    try {
+      _token = await _secureStorage.read(key: 'jwt_token');
+    } catch (e) {
+      // If decryption fails, clear all stored data to recover from keystore corruption
+      try {
+        await _secureStorage.deleteAll();
+      } catch (_) {}
+      _token = null;
+    }
   }
 
   Future<void> saveToken(String token) async {
@@ -85,6 +95,22 @@ class ApiClient {
     final uri = Uri.parse('${AppConstants.apiBaseUrl}/Report/$reportType')
         .replace(queryParameters: params);
     return uri.toString();
+  }
+
+  /// Fetches report data as a JSON list for inline preview
+  Future<dynamic> getReportData(String reportType, Map<String, String> queryParameters) async {
+    final params = Map<String, String>.from(queryParameters);
+    params['format'] = 'json'; // explicitly request JSON
+    final uri = Uri.parse('${AppConstants.apiBaseUrl}/Report/$reportType')
+        .replace(queryParameters: params);
+    final response = await _httpClient
+        .get(uri, headers: _getHeaders())
+        .timeout(_timeout);
+    _checkUnauthorized(response);
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+    throw Exception('Failed to load report: ${response.statusCode}');
   }
 
   void _checkUnauthorized(http.Response response) {
