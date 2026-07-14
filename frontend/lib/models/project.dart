@@ -17,4 +17,15 @@ class Project {
       'projectName': projectName,
     };
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Project &&
+          runtimeType == other.runtimeType &&
+          projectId == other.projectId &&
+          projectName == other.projectName;
+
+  @override
+  int get hashCode => projectId.hashCode ^ projectName.hashCode;
 }
