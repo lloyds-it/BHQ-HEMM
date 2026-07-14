@@ -56,6 +56,13 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
   }
 
   void _handleFocusChange() {
+    if (_myFocusNode.hasFocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_isOpen) {
+          _open();
+        }
+      });
+    }
     if (mounted) setState(() {});
   }
 
@@ -245,9 +252,30 @@ class _DropdownListState<T> extends State<_DropdownList<T>> {
 
   void _filter(String q) {
     setState(() {
-      _filtered = q.isEmpty
-          ? widget.items
-          : widget.items.where((i) => widget.searchMatcher(i, q)).toList();
+      if (q.isEmpty) {
+        _filtered = widget.items;
+      } else {
+        final query = q.toLowerCase();
+        // 1. Filter matching items
+        final matching = widget.items.where((i) => widget.searchMatcher(i, q)).toList();
+        
+        // 2. Sort: nearest startsWith matches first, then contains matches
+        matching.sort((a, b) {
+          final strA = widget.itemAsString(a).toLowerCase();
+          final strB = widget.itemAsString(b).toLowerCase();
+          
+          final startsA = strA.startsWith(query);
+          final startsB = strB.startsWith(query);
+          
+          if (startsA && !startsB) return -1;
+          if (!startsA && startsB) return 1;
+          
+          // Secondary alphabetical sort
+          return strA.compareTo(strB);
+        });
+        
+        _filtered = matching;
+      }
       _focusedIndex = 0;
     });
   }
@@ -343,9 +371,9 @@ class _DropdownListState<T> extends State<_DropdownList<T>> {
                         return InkWell(
                           onTap: () => widget.onSelected(item),
                           child: Container(
-                            height: 28,
+                            constraints: const BoxConstraints(minHeight: 28),
                             alignment: Alignment.centerLeft,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: isFocused
                                   ? AppColors.primary.withOpacity(0.08)
@@ -369,7 +397,6 @@ class _DropdownListState<T> extends State<_DropdownList<T>> {
                                           ? FontWeight.w600
                                           : FontWeight.normal,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 if (isSelected)

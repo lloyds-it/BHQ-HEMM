@@ -344,16 +344,29 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
     final entryProvider = Provider.of<EntryProvider>(context);
     const p = 12.0;
 
-    final content = Form(
-      key: _formKey,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                decoration: DesignSystem.glassDecoration,
+    // Auto-select BHQ Hedri as default if projects have loaded
+    if (_selectedProject == null && masterProvider.projects.isNotEmpty) {
+      _selectedProject = masterProvider.projects.firstWhere(
+        (proj) => proj.projectName.toLowerCase() == 'bhq hedri',
+        orElse: () => masterProvider.projects.first,
+      );
+    }
+
+    final content = CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyS, control: true): _submit,
+        const SingleActivator(LogicalKeyboardKey.keyR, control: true): _reset,
+      },
+      child: Form(
+        key: _formKey,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  decoration: DesignSystem.glassDecoration,
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -709,7 +722,7 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                 textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                               ),
-                              child: const Text('Reset'),
+                              child: const Text('Reset (Ctrl+R)'),
                             ),
                           ),
                         ),
@@ -736,7 +749,7 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
                                       elevation: 0,
                                       textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                                     ),
-                                    child: const Text('Save Summary Log'),
+                                    child: const Text('Save Summary Log (Ctrl+S)'),
                                   ),
                           ),
                         ),
@@ -749,7 +762,8 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
           ),
         ),
       ),
-    );
+    ),
+  );
 
     if (widget.isEmbed) {
       return Padding(

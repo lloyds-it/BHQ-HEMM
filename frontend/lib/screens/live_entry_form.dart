@@ -180,18 +180,31 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
     final entryProvider = Provider.of<EntryProvider>(context);
     const p = 12.0;
 
-    final content = Form(
-      key: _formKey,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: Container(
-            decoration: DesignSystem.glassDecoration,
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
+    // Auto-select BHQ Hedri as default if projects have loaded
+    if (_selectedProject == null && masterProvider.projects.isNotEmpty) {
+      _selectedProject = masterProvider.projects.firstWhere(
+        (proj) => proj.projectName.toLowerCase() == 'bhq hedri',
+        orElse: () => masterProvider.projects.first,
+      );
+    }
+
+    final content = CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyS, control: true): _submit,
+        const SingleActivator(LogicalKeyboardKey.keyR, control: true): _reset,
+      },
+      child: Form(
+        key: _formKey,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: Container(
+              decoration: DesignSystem.glassDecoration,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 // Header row
                 Row(
                   children: [
@@ -348,7 +361,7 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                             textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                           ),
-                          child: const Text('Reset'),
+                          child: const Text('Reset (Ctrl+R)'),
                         ),
                       ),
                     ),
@@ -375,7 +388,7 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
                                   elevation: 0,
                                   textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                                 ),
-                                child: const Text('Save Log'),
+                                child: const Text('Save Log (Ctrl+S)'),
                               ),
                       ),
                     ),
@@ -386,7 +399,8 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
           ),
         ),
       ),
-    );
+    ),
+  );
 
     if (widget.isEmbed) {
       return Padding(
