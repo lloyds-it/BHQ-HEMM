@@ -52,50 +52,53 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
     
     // Set up the key listener directly on the FocusNode to handle Arrow Up/Down and Enter
     _myFocusNode.onKeyEvent = (node, event) {
-      if (event is KeyDownEvent) {
-        if (!_isOpen) {
-          if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-              event.logicalKey == LogicalKeyboardKey.enter) {
-            _open();
-            return KeyEventResult.handled;
-          }
-          return KeyEventResult.ignored;
-        }
-
-        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-          setState(() {
-            if (_filteredItems.isNotEmpty) {
-              _focusedIndex = (_focusedIndex + 1) % _filteredItems.length;
-              _overlayEntry?.markNeedsBuild();
-            }
-          });
-          return KeyEventResult.handled;
-        } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-          setState(() {
-            if (_filteredItems.isNotEmpty) {
-              _focusedIndex = (_focusedIndex - 1 + _filteredItems.length) % _filteredItems.length;
-              _overlayEntry?.markNeedsBuild();
-            }
-          });
-          return KeyEventResult.handled;
-        } else if (event.logicalKey == LogicalKeyboardKey.enter) {
-          final formFieldState = context.findAncestorStateOfType<FormFieldState<T>>();
-          if (_filteredItems.isNotEmpty && _focusedIndex >= 0 && _focusedIndex < _filteredItems.length) {
-            if (formFieldState != null) {
-              _selectItem(_filteredItems[_focusedIndex], formFieldState);
-            } else {
-              widget.onChanged(_filteredItems[_focusedIndex]);
-              _close();
-              _updateText();
+      final isDown = event is KeyDownEvent;
+      
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+          event.logicalKey == LogicalKeyboardKey.arrowUp ||
+          event.logicalKey == LogicalKeyboardKey.enter ||
+          event.logicalKey == LogicalKeyboardKey.escape) {
+          
+        if (isDown) {
+          if (!_isOpen) {
+            if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                event.logicalKey == LogicalKeyboardKey.enter) {
+              _open();
             }
           } else {
-            _close();
+            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              setState(() {
+                if (_filteredItems.isNotEmpty) {
+                  _focusedIndex = (_focusedIndex + 1) % _filteredItems.length;
+                  _overlayEntry?.markNeedsBuild();
+                }
+              });
+            } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+              setState(() {
+                if (_filteredItems.isNotEmpty) {
+                  _focusedIndex = (_focusedIndex - 1 + _filteredItems.length) % _filteredItems.length;
+                  _overlayEntry?.markNeedsBuild();
+                }
+              });
+            } else if (event.logicalKey == LogicalKeyboardKey.enter) {
+              final formFieldState = context.findAncestorStateOfType<FormFieldState<T>>();
+              if (_filteredItems.isNotEmpty && _focusedIndex >= 0 && _focusedIndex < _filteredItems.length) {
+                if (formFieldState != null) {
+                  _selectItem(_filteredItems[_focusedIndex], formFieldState);
+                } else {
+                  widget.onChanged(_filteredItems[_focusedIndex]);
+                  _close();
+                  _updateText();
+                }
+              } else {
+                _close();
+              }
+            } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+              _close();
+            }
           }
-          return KeyEventResult.handled;
-        } else if (event.logicalKey == LogicalKeyboardKey.escape) {
-          _close();
-          return KeyEventResult.handled;
         }
+        return KeyEventResult.handled; // Block both down and up events from propagating
       }
       return KeyEventResult.ignored;
     };
