@@ -231,21 +231,18 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
                 // Project
                 _label('Project Name'),
                 const SizedBox(height: 3),
-                SizedBox(
-                  height: 32,
-                  child: DropdownButtonFormField<Project>(
-                    focusNode: _projectFocus,
-                    value: _selectedProject,
-                    isDense: true,
-                    decoration: _inputDecor(Icons.location_on_outlined),
-                    items: masterProvider.projects.map((proj) {
-                      return DropdownMenuItem(
-                          value: proj,
-                          child: Text(proj.projectName, style: const TextStyle(fontSize: 12)));
-                    }).toList(),
-                    onChanged: (val) => setState(() => _selectedProject = val),
-                    validator: (value) => value == null ? 'Required' : null,
-                  ),
+                DropdownButtonFormField<Project>(
+                  focusNode: _projectFocus,
+                  value: _selectedProject,
+                  isDense: true,
+                  decoration: _inputDecor(Icons.location_on_outlined),
+                  items: masterProvider.projects.map((proj) {
+                    return DropdownMenuItem(
+                        value: proj,
+                        child: Text(proj.projectName, style: const TextStyle(fontSize: 12)));
+                  }).toList(),
+                  onChanged: (val) => setState(() => _selectedProject = val),
+                  validator: (value) => value == null ? 'Required' : null,
                 ),
                 const SizedBox(height: 8),
 
@@ -288,22 +285,19 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
                 // HMR Value
                 _label('HMR / KMR Value'),
                 const SizedBox(height: 3),
-                SizedBox(
-                  height: 32,
-                  child: TextFormField(
-                    focusNode: _hmrFocus,
-                    controller: _hmrController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    textInputAction: TextInputAction.next,
-                    style: const TextStyle(fontSize: 12),
-                    decoration: _inputDecor(Icons.speed_outlined).copyWith(hintText: 'Enter current reading'),
-                    onFieldSubmitted: (_) => _activityFocus.requestFocus(),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return 'Required';
-                      if (double.tryParse(value) == null) return 'Invalid decimal';
-                      return null;
-                    },
-                  ),
+                TextFormField(
+                  focusNode: _hmrFocus,
+                  controller: _hmrController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textInputAction: TextInputAction.next,
+                  style: const TextStyle(fontSize: 12),
+                  decoration: _inputDecor(Icons.speed_outlined).copyWith(hintText: 'Enter current reading'),
+                  onFieldSubmitted: (_) => _activityFocus.requestFocus(),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return 'Required';
+                    if (double.tryParse(value) == null) return 'Invalid decimal';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 8),
 

@@ -384,21 +384,18 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
                             children: [
                               _label('Project Name'),
                               const SizedBox(height: 3),
-                              SizedBox(
-                                height: 32,
-                                child: DropdownButtonFormField<Project>(
-                                  focusNode: _projectFocus,
-                                  value: _selectedProject,
-                                  isDense: true,
-                                  decoration: _inputDecor(Icons.location_on_outlined),
-                                  items: masterProvider.projects.map((proj) {
-                                    return DropdownMenuItem(
-                                        value: proj,
-                                        child: Text(proj.projectName, style: const TextStyle(fontSize: 12)));
-                                  }).toList(),
-                                  onChanged: (val) => setState(() => _selectedProject = val),
-                                  validator: (val) => val == null ? 'Required' : null,
-                                ),
+                              DropdownButtonFormField<Project>(
+                                focusNode: _projectFocus,
+                                value: _selectedProject,
+                                isDense: true,
+                                decoration: _inputDecor(Icons.location_on_outlined),
+                                items: masterProvider.projects.map((proj) {
+                                  return DropdownMenuItem(
+                                      value: proj,
+                                      child: Text(proj.projectName, style: const TextStyle(fontSize: 12)));
+                                }).toList(),
+                                onChanged: (val) => setState(() => _selectedProject = val),
+                                validator: (val) => val == null ? 'Required' : null,
                               ),
                             ],
                           ),
@@ -529,18 +526,15 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
                             children: [
                               _label('Start HMR'),
                               const SizedBox(height: 3),
-                              SizedBox(
-                                height: 32,
-                                child: TextFormField(
-                                  focusNode: _startHmrFocus,
-                                  controller: _startHmrController,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  textInputAction: TextInputAction.next,
-                                  style: const TextStyle(fontSize: 12),
-                                  decoration: _inputDecor(Icons.speed_outlined).copyWith(hintText: 'Start'),
-                                  onFieldSubmitted: (_) => _endHmrFocus.requestFocus(),
-                                  validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                                ),
+                              TextFormField(
+                                focusNode: _startHmrFocus,
+                                controller: _startHmrController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                textInputAction: TextInputAction.next,
+                                style: const TextStyle(fontSize: 12),
+                                decoration: _inputDecor(Icons.speed_outlined).copyWith(hintText: 'Start'),
+                                onFieldSubmitted: (_) => _endHmrFocus.requestFocus(),
+                                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                               ),
                             ],
                           ),
@@ -552,18 +546,15 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
                             children: [
                               _label('End HMR'),
                               const SizedBox(height: 3),
-                              SizedBox(
-                                height: 32,
-                                child: TextFormField(
-                                  focusNode: _endHmrFocus,
-                                  controller: _endHmrController,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  textInputAction: TextInputAction.next,
-                                  style: const TextStyle(fontSize: 12),
-                                  decoration: _inputDecor(Icons.speed_outlined).copyWith(hintText: 'End'),
-                                  onFieldSubmitted: (_) => _activityFocus.requestFocus(),
-                                  validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                                ),
+                              TextFormField(
+                                focusNode: _endHmrFocus,
+                                controller: _endHmrController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                textInputAction: TextInputAction.next,
+                                style: const TextStyle(fontSize: 12),
+                                decoration: _inputDecor(Icons.speed_outlined).copyWith(hintText: 'End'),
+                                onFieldSubmitted: (_) => _activityFocus.requestFocus(),
+                                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                               ),
                             ],
                           ),
@@ -889,17 +880,14 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
       children: [
         _label(title),
         const SizedBox(height: 3),
-        SizedBox(
-          height: 32,
-          child: TextFormField(
-            focusNode: focus,
-            controller: ctrl,
-            keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.next,
-            style: const TextStyle(fontSize: 12),
-            decoration: _inputDecor(Icons.oil_barrel_outlined),
-            onFieldSubmitted: (_) => nextFocus.requestFocus(),
-          ),
+        TextFormField(
+          focusNode: focus,
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
+          style: const TextStyle(fontSize: 12),
+          decoration: _inputDecor(Icons.oil_barrel_outlined),
+          onFieldSubmitted: (_) => nextFocus.requestFocus(),
         ),
       ],
     );
