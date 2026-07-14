@@ -67,10 +67,8 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
   void _loadInitialData() async {
     final masterProvider = Provider.of<MasterProvider>(context, listen: false);
     await masterProvider.fetchProjects();
-    await masterProvider.fetchEquipment();
-    await masterProvider.fetchOperators(); // Fetch operators so they load correctly
-
-    if (masterProvider.projects.isNotEmpty) {
+    
+    if (masterProvider.projects.isNotEmpty && _selectedProject == null) {
       setState(() {
         _selectedProject = masterProvider.projects.firstWhere(
           (p) => p.projectName.toLowerCase() == 'bhq hedri',
@@ -78,6 +76,9 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
         );
       });
     }
+
+    await masterProvider.fetchEquipment();
+    await masterProvider.fetchOperators(); // Fetch operators so they load correctly
   }
 
   @override
@@ -180,13 +181,7 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
     final entryProvider = Provider.of<EntryProvider>(context);
     const p = 12.0;
 
-    // Auto-select BHQ Hedri as default if projects have loaded
-    if (_selectedProject == null && masterProvider.projects.isNotEmpty) {
-      _selectedProject = masterProvider.projects.firstWhere(
-        (proj) => proj.projectName.toLowerCase() == 'bhq hedri',
-        orElse: () => masterProvider.projects.first,
-      );
-    }
+
 
     final content = CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{

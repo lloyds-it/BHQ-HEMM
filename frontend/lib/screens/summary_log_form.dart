@@ -116,10 +116,8 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
   void _loadInitialData() async {
     final masterProvider = Provider.of<MasterProvider>(context, listen: false);
     await masterProvider.fetchProjects();
-    await masterProvider.fetchEquipment();
-    await masterProvider.fetchOperators();
-
-    if (masterProvider.projects.isNotEmpty) {
+    
+    if (masterProvider.projects.isNotEmpty && _selectedProject == null) {
       setState(() {
         _selectedProject = masterProvider.projects.firstWhere(
           (p) => p.projectName.toLowerCase() == 'bhq hedri',
@@ -127,6 +125,9 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
         );
       });
     }
+
+    await masterProvider.fetchEquipment();
+    await masterProvider.fetchOperators();
   }
 
   @override
@@ -344,13 +345,7 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
     final entryProvider = Provider.of<EntryProvider>(context);
     const p = 12.0;
 
-    // Auto-select BHQ Hedri as default if projects have loaded
-    if (_selectedProject == null && masterProvider.projects.isNotEmpty) {
-      _selectedProject = masterProvider.projects.firstWhere(
-        (proj) => proj.projectName.toLowerCase() == 'bhq hedri',
-        orElse: () => masterProvider.projects.first,
-      );
-    }
+
 
     final content = CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
