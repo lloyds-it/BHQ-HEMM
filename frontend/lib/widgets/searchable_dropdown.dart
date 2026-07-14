@@ -13,6 +13,7 @@ class SearchableDropdown<T> extends StatefulWidget {
   final String? Function(T?)? validator;
   final FocusNode? focusNode;
   final FocusNode? nextFocusNode;
+  final IconData? prefixIcon;
 
   const SearchableDropdown({
     super.key,
@@ -26,6 +27,7 @@ class SearchableDropdown<T> extends StatefulWidget {
     this.validator,
     this.focusNode,
     this.nextFocusNode,
+    this.prefixIcon,
   });
 
   @override
@@ -37,12 +39,27 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
   late FocusNode _myFocusNode;
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
+  late final TextEditingController _textCtrl;
+
+  List<T> _filteredItems = [];
+  int _focusedIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _myFocusNode = widget.focusNode ?? FocusNode();
     _myFocusNode.addListener(_handleFocusChange);
+    _textCtrl = TextEditingController();
+    _updateText();
+    _filteredItems = widget.items;
+  }
+
+  @override
+  void didUpdateWidget(SearchableDropdown<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedItem != oldWidget.selectedItem) {
+      _updateText();
+    }
   }
 
   @override
@@ -51,19 +68,62 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
     if (widget.focusNode == null) {
       _myFocusNode.dispose();
     }
+    _textCtrl.dispose();
     _close();
     super.dispose();
+  }
+
+  void _updateText() {
+    final text = widget.selectedItem != null ? widget.itemAsString(widget.selectedItem!) : '';
+    if (_textCtrl.text != text) {
+      _textCtrl.text = text;
+    }
   }
 
   void _handleFocusChange() {
     if (_myFocusNode.hasFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_isOpen) {
+          _filter(_textCtrl.text);
           _open();
+        }
+      });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _close();
+          _updateText(); // Revert back to actual selected item if focus is lost with invalid text
         }
       });
     }
     if (mounted) setState(() {});
+  }
+
+  void _filter(String q) {
+    if (q.isEmpty) {
+      _filteredItems = widget.items;
+    } else {
+      final query = q.toLowerCase();
+      final matching = widget.items.where((i) => widget.searchMatcher(i, q)).toList();
+      
+      matching.sort((a, b) {
+        final strA = widget.itemAsString(a).toLowerCase();
+        final strB = widget.itemAsString(b).toLowerCase();
+        
+        final startsA = strA.startsWith(query);
+        final startsB = strB.startsWith(query);
+        
+        if (startsA && !startsB) return -1;
+        if (!startsA && startsB) return 1;
+        
+        return strA.compareTo(strB);
+      });
+      _filteredItems = matching;
+    }
+
+    if (_focusedIndex >= _filteredItems.length) {
+      _focusedIndex = 0;
+    }
   }
 
   void _open() {
@@ -85,26 +145,84 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
             borderRadius: BorderRadius.circular(6),
             color: Colors.white,
             shadowColor: Colors.black.withOpacity(0.2),
-            child: _DropdownList<T>(
-              items: widget.items,
-              searchHint: widget.searchHint,
-              itemAsString: widget.itemAsString,
-              searchMatcher: widget.searchMatcher,
-              selectedItem: widget.selectedItem,
-              onSelected: (item) {
-                widget.onChanged(item);
-                _close();
-                // Request focus for next field if available
-                if (widget.nextFocusNode != null) {
-                  widget.nextFocusNode!.requestFocus();
-                } else {
-                  _myFocusNode.requestFocus();
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: StatefulBuilder(
+                builder: (context, setOverlayState) {
+                  if (_filteredItems.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text('No results found',
+                          style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                    );
+                  }
+                  // We need to look up FormFieldState dynamically to pass to _selectItem
+                  final formFieldState = context.findAncestorStateOfType<FormFieldState<T>>();
+
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: _filteredItems.length,
+                    itemBuilder: (ctx, i) {
+                      final item = _filteredItems[i];
+                      final isFocused = i == _focusedIndex;
+                      final isSelected = item == widget.selectedItem;
+
+                      return InkWell(
+                        onTap: () {
+                          if (formFieldState != null) {
+                            _selectItem(item, formFieldState);
+                          } else {
+                            widget.onChanged(item);
+                            _close();
+                            _updateText();
+                          }
+                        },
+                        child: Container(
+                          constraints: const BoxConstraints(minHeight: 28),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isFocused
+                                ? AppColors.primary.withOpacity(0.08)
+                                : isSelected
+                                    ? AppColors.primary.withOpacity(0.04)
+                                    : null,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  widget.itemAsString(item),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isFocused || isSelected
+                                        ? AppColors.primary
+                                        : AppColors.textPrimary,
+                                    fontWeight: isFocused || isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(Icons.check, size: 12, color: AppColors.primary),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
                 }
-              },
-              onClose: () {
-                _close();
-                _myFocusNode.requestFocus();
-              },
+              ),
             ),
           ),
         ),
@@ -121,296 +239,136 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
     if (mounted) setState(() => _isOpen = false);
   }
 
+  void _selectItem(T item, FormFieldState<T> state) {
+    widget.onChanged(item);
+    state.didChange(item);
+    _close();
+    _updateText();
+    if (widget.nextFocusNode != null) {
+      widget.nextFocusNode!.requestFocus();
+    } else {
+      _myFocusNode.requestFocus();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FormField<T>(
       validator: widget.validator,
       initialValue: widget.selectedItem,
       builder: (state) {
-        return CompositedTransformTarget(
-          link: _layerLink,
-          child: Focus(
-            focusNode: _myFocusNode,
-            onKeyEvent: (node, event) {
-              if (event is KeyDownEvent) {
-                if (event.logicalKey == LogicalKeyboardKey.tab) {
-                  if (!HardwareKeyboard.instance.isShiftPressed) {
-                    if (widget.nextFocusNode != null) {
-                      widget.nextFocusNode!.requestFocus();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CompositedTransformTarget(
+              link: _layerLink,
+              child: Focus(
+                focusNode: _myFocusNode,
+                onKeyEvent: (node, event) {
+                  if (event is KeyDownEvent) {
+                    if (!_isOpen) {
+                      if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                          event.logicalKey == LogicalKeyboardKey.enter) {
+                        _open();
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    }
+
+                    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                      setState(() {
+                        if (_filteredItems.isNotEmpty) {
+                          _focusedIndex = (_focusedIndex + 1) % _filteredItems.length;
+                          _overlayEntry?.markNeedsBuild();
+                        }
+                      });
+                      return KeyEventResult.handled;
+                    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                      setState(() {
+                        if (_filteredItems.isNotEmpty) {
+                          _focusedIndex = (_focusedIndex - 1 + _filteredItems.length) % _filteredItems.length;
+                          _overlayEntry?.markNeedsBuild();
+                        }
+                      });
+                      return KeyEventResult.handled;
+                    } else if (event.logicalKey == LogicalKeyboardKey.enter) {
+                      if (_filteredItems.isNotEmpty && _focusedIndex >= 0 && _focusedIndex < _filteredItems.length) {
+                        _selectItem(_filteredItems[_focusedIndex], state);
+                      } else {
+                        _close();
+                      }
+                      return KeyEventResult.handled;
+                    } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+                      _close();
                       return KeyEventResult.handled;
                     }
                   }
-                }
-                if (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.space ||
-                    event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                  if (!_isOpen) {
-                    _open();
-                    return KeyEventResult.handled;
-                  }
-                }
-              }
-              return KeyEventResult.ignored;
-            },
-            child: InkWell(
-              onTap: _isOpen ? _close : _open,
-              borderRadius: BorderRadius.circular(6),
-              canRequestFocus: false,
-              child: Container(
-                height: 32,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: state.hasError
-                        ? AppColors.breakdown
-                        : _myFocusNode.hasFocus
-                            ? AppColors.primary
-                            : AppColors.border,
-                    width: _myFocusNode.hasFocus || state.hasError ? 1.5 : 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        widget.selectedItem != null
-                            ? widget.itemAsString(widget.selectedItem!)
-                            : 'Select ${widget.label}',
-                        style: TextStyle(
-                          color: widget.selectedItem != null
-                              ? AppColors.textPrimary
-                              : AppColors.textMuted,
-                          fontSize: 12,
+                  return KeyEventResult.ignored;
+                },
+                child: SizedBox(
+                  height: 32,
+                  child: TextFormField(
+                    controller: _textCtrl,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: InputDecoration(
+                      hintText: 'Type to select ${widget.label}',
+                      hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                      suffixIcon: Icon(
+                        _isOpen ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                        color: state.hasError
+                            ? AppColors.breakdown
+                            : _myFocusNode.hasFocus
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                        size: 18,
+                      ),
+                      prefixIcon: widget.prefixIcon != null ? Icon(widget.prefixIcon, size: 14, color: AppColors.textSecondary) : null,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(5),
+                        borderSide: BorderSide(color: state.hasError ? AppColors.breakdown : AppColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(5),
+                        borderSide: BorderSide(color: state.hasError ? AppColors.breakdown : AppColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(5),
+                        borderSide: BorderSide(
+                          color: state.hasError ? AppColors.breakdown : AppColors.primary,
+                          width: 1.5,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Icon(
-                      _isOpen ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                      color: _myFocusNode.hasFocus ? AppColors.primary : AppColors.textSecondary,
-                      size: 18,
-                    ),
-                  ],
+                    onChanged: (val) {
+                      setState(() {
+                        _filter(val);
+                        state.didChange(null);
+                        widget.onChanged(null);
+                        if (!_isOpen) {
+                          _open();
+                        } else {
+                          _overlayEntry?.markNeedsBuild();
+                        }
+                      });
+                    },
+                  ),
                 ),
               ),
             ),
-          ),
+            if (state.hasError && state.errorText != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 3, left: 4),
+                child: Text(
+                  state.errorText!,
+                  style: const TextStyle(color: AppColors.breakdown, fontSize: 10, fontWeight: FontWeight.w500),
+                ),
+              ),
+          ],
         );
       },
-    );
-  }
-}
-
-class _DropdownList<T> extends StatefulWidget {
-  final List<T> items;
-  final String searchHint;
-  final String Function(T) itemAsString;
-  final bool Function(T, String) searchMatcher;
-  final T? selectedItem;
-  final ValueChanged<T> onSelected;
-  final VoidCallback onClose;
-
-  const _DropdownList({
-    required this.items,
-    required this.searchHint,
-    required this.itemAsString,
-    required this.searchMatcher,
-    this.selectedItem,
-    required this.onSelected,
-    required this.onClose,
-  });
-
-  @override
-  State<_DropdownList<T>> createState() => _DropdownListState<T>();
-}
-
-class _DropdownListState<T> extends State<_DropdownList<T>> {
-  final TextEditingController _ctrl = TextEditingController();
-  final FocusNode _searchFocus = FocusNode();
-  List<T> _filtered = [];
-  int _focusedIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _filtered = widget.items;
-    if (widget.selectedItem != null) {
-      final idx = widget.items.indexOf(widget.selectedItem!);
-      if (idx != -1) _focusedIndex = idx;
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    _searchFocus.dispose();
-    super.dispose();
-  }
-
-  void _filter(String q) {
-    setState(() {
-      if (q.isEmpty) {
-        _filtered = widget.items;
-      } else {
-        final query = q.toLowerCase();
-        // 1. Filter matching items
-        final matching = widget.items.where((i) => widget.searchMatcher(i, q)).toList();
-        
-        // 2. Sort: nearest startsWith matches first, then contains matches
-        matching.sort((a, b) {
-          final strA = widget.itemAsString(a).toLowerCase();
-          final strB = widget.itemAsString(b).toLowerCase();
-          
-          final startsA = strA.startsWith(query);
-          final startsB = strB.startsWith(query);
-          
-          if (startsA && !startsB) return -1;
-          if (!startsA && startsB) return 1;
-          
-          // Secondary alphabetical sort
-          return strA.compareTo(strB);
-        });
-        
-        _filtered = matching;
-      }
-      _focusedIndex = 0;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Focus(
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
-          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-            setState(() {
-              if (_filtered.isNotEmpty) {
-                _focusedIndex = (_focusedIndex + 1) % _filtered.length;
-              }
-            });
-            return KeyEventResult.handled;
-          } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-            setState(() {
-              if (_filtered.isNotEmpty) {
-                _focusedIndex = (_focusedIndex - 1 + _filtered.length) % _filtered.length;
-              }
-            });
-            return KeyEventResult.handled;
-          } else if (event.logicalKey == LogicalKeyboardKey.enter || event.logicalKey == LogicalKeyboardKey.tab) {
-            if (_filtered.isNotEmpty && _focusedIndex >= 0 && _focusedIndex < _filtered.length) {
-              widget.onSelected(_filtered[_focusedIndex]);
-            }
-            return KeyEventResult.handled;
-          } else if (event.logicalKey == LogicalKeyboardKey.escape) {
-            widget.onClose();
-            return KeyEventResult.handled;
-          }
-        }
-        return KeyEventResult.ignored;
-      },
-      child: Container(
-        constraints: const BoxConstraints(maxHeight: 240),
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Search field
-            SizedBox(
-              height: 30,
-              child: TextField(
-                controller: _ctrl,
-                focusNode: _searchFocus,
-                autofocus: true,
-                onChanged: _filter,
-                style: const TextStyle(fontSize: 12),
-                decoration: InputDecoration(
-                  hintText: widget.searchHint,
-                  hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                  prefixIcon: const Icon(Icons.search, size: 14, color: AppColors.textSecondary),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: AppColors.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: AppColors.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: AppColors.primary),
-                  ),
-                  isDense: true,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Flexible(
-              child: _filtered.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Text('No results found',
-                          style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                    )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: _filtered.length,
-                      itemBuilder: (ctx, i) {
-                        final item = _filtered[i];
-                        final isFocused = i == _focusedIndex;
-                        final isSelected = item == widget.selectedItem;
-
-                        return InkWell(
-                          onTap: () => widget.onSelected(item),
-                          child: Container(
-                            constraints: const BoxConstraints(minHeight: 28),
-                            alignment: Alignment.centerLeft,
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: isFocused
-                                  ? AppColors.primary.withOpacity(0.08)
-                                  : isSelected
-                                      ? AppColors.primary.withOpacity(0.04)
-                                      : null,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    widget.itemAsString(item),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isFocused || isSelected
-                                          ? AppColors.primary
-                                          : AppColors.textPrimary,
-                                      fontWeight: isFocused || isSelected
-                                          ? FontWeight.w600
-                                          : FontWeight.normal,
-                                    ),
-                                  ),
-                                ),
-                                if (isSelected)
-                                  const Icon(Icons.check, size: 12, color: AppColors.primary),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

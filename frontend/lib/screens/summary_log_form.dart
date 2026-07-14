@@ -462,6 +462,7 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
                                 searchMatcher: (e, q) => e.equipmentNumber.toLowerCase().contains(q.toLowerCase()),
                                 onChanged: (val) => setState(() => _selectedEquipment = val),
                                 validator: (val) => val == null ? 'Required' : null,
+                                prefixIcon: Icons.fire_truck_outlined,
                               ),
                             ],
                           ),
@@ -484,6 +485,7 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
                                 searchMatcher: (o, q) => o.operatorName.toLowerCase().contains(q.toLowerCase()),
                                 onChanged: (val) => setState(() => _selectedOperator = val),
                                 validator: (val) => val == null ? 'Required' : null,
+                                prefixIcon: Icons.engineering_outlined,
                               ),
                             ],
                           ),
@@ -608,20 +610,17 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
                             children: [
                               _label('Activity Type'),
                               const SizedBox(height: 3),
-                              SizedBox(
-                                height: 32,
-                                child: DropdownButtonFormField<String>(
-                                  focusNode: _activityFocus,
-                                  value: _selectedActivity,
-                                  isDense: true,
-                                  decoration: _inputDecor(Icons.pending_actions),
-                                  items: AppConstants.activities.map((a) {
-                                    return DropdownMenuItem(
-                                        value: a,
-                                        child: Text(a, style: const TextStyle(fontSize: 12)));
-                                  }).toList(),
-                                  onChanged: (val) => setState(() => _selectedActivity = val ?? AppConstants.activityRunning),
-                                ),
+                              SearchableDropdown<String>(
+                                focusNode: _activityFocus,
+                                nextFocusNode: _workDoneFocus,
+                                items: AppConstants.activities,
+                                label: 'Activity Type',
+                                searchHint: 'Search activity...',
+                                selectedItem: _selectedActivity,
+                                itemAsString: (a) => a,
+                                searchMatcher: (a, q) => a.toLowerCase().contains(q.toLowerCase()),
+                                onChanged: (val) => setState(() => _selectedActivity = val ?? AppConstants.activityRunning),
+                                prefixIcon: Icons.pending_actions,
                               ),
                             ],
                           ),

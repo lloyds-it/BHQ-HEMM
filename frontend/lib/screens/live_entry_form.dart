@@ -263,6 +263,7 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
                   searchMatcher: (eq, query) => eq.equipmentNumber.toLowerCase().contains(query.toLowerCase()),
                   onChanged: _onEquipmentSelected,
                   validator: (value) => value == null ? 'Required' : null,
+                  prefixIcon: Icons.fire_truck_outlined,
                 ),
                 const SizedBox(height: 8),
 
@@ -280,6 +281,7 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
                   searchMatcher: (o, q) => o.operatorName.toLowerCase().contains(q.toLowerCase()),
                   onChanged: (val) => setState(() => _selectedOperator = val),
                   validator: (val) => val == null ? 'Required' : null,
+                  prefixIcon: Icons.engineering_outlined,
                 ),
                 const SizedBox(height: 8),
 
@@ -308,20 +310,17 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
                 // Activity Dropdown
                 _label('Activity Type'),
                 const SizedBox(height: 3),
-                SizedBox(
-                  height: 32,
-                  child: DropdownButtonFormField<String>(
-                    focusNode: _activityFocus,
-                    value: _selectedActivity,
-                    isDense: true,
-                    decoration: _inputDecor(Icons.pending_actions_outlined),
-                    items: AppConstants.activities.map((act) {
-                      return DropdownMenuItem(
-                          value: act,
-                          child: Text(act, style: const TextStyle(fontSize: 12)));
-                    }).toList(),
-                    onChanged: (val) => setState(() => _selectedActivity = val ?? AppConstants.activityRunning),
-                  ),
+                SearchableDropdown<String>(
+                  focusNode: _activityFocus,
+                  nextFocusNode: _submitFocus,
+                  items: AppConstants.activities,
+                  label: 'Activity Type',
+                  searchHint: 'Search activity...',
+                  selectedItem: _selectedActivity,
+                  itemAsString: (act) => act,
+                  searchMatcher: (act, q) => act.toLowerCase().contains(q.toLowerCase()),
+                  onChanged: (val) => setState(() => _selectedActivity = val ?? AppConstants.activityRunning),
+                  prefixIcon: Icons.pending_actions_outlined,
                 ),
                 const SizedBox(height: 10),
 
