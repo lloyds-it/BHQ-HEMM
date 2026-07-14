@@ -62,9 +62,12 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
           
         if (isDown) {
           if (!_isOpen) {
-            if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-                event.logicalKey == LogicalKeyboardKey.enter) {
+            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
               _open();
+            } else if (event.logicalKey == LogicalKeyboardKey.enter) {
+              if (widget.nextFocusNode != null) {
+                widget.nextFocusNode!.requestFocus();
+              }
             }
           } else {
             if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
