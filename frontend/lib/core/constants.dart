@@ -1,5 +1,5 @@
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 
 class AppConstants {
   /// Determines the correct API base URL based on platform:
@@ -8,6 +8,9 @@ class AppConstants {
   /// - Real Android Device / iOS on real device: your PC's local IP
   static String get apiBaseUrl {
     if (kIsWeb) {
+      if (kDebugMode) {
+        return 'http://localhost:5000/api';
+      }
       return 'https://taskai.lloyds.in/hemm/api';
     }
     if (Platform.isAndroid) {
