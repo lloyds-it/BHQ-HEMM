@@ -186,12 +186,25 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
           link: _layerLink,
           showWhenUnlinked: false,
           offset: Offset(0, size.height + 2),
-          child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(6),
-            color: Colors.white,
-            shadowColor: Colors.black.withOpacity(0.2),
-            child: Container(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutQuad,
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, -8 * (1.0 - value)),
+                  child: child,
+                ),
+              );
+            },
+            child: Material(
+              elevation: 8,
+              borderRadius: BorderRadius.circular(6),
+              color: Colors.white,
+              shadowColor: Colors.black.withOpacity(0.2),
+              child: Container(
               constraints: const BoxConstraints(maxHeight: 200),
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
@@ -262,6 +275,7 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
                 }
               ),
             ),
+          ),
           ),
         ),
       ),
@@ -366,14 +380,19 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
                 ),
               ),
             ),
-            if (state.hasError && state.errorText != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 3, left: 4),
-                child: Text(
-                  state.errorText!,
-                  style: const TextStyle(color: AppColors.breakdown, fontSize: 10, fontWeight: FontWeight.w500),
-                ),
-              ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              child: (state.hasError && state.errorText != null)
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 3, left: 4),
+                      child: Text(
+                        state.errorText!,
+                        style: const TextStyle(color: AppColors.breakdown, fontSize: 10, fontWeight: FontWeight.w500),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ],
         );
       },
