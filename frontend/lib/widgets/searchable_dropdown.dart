@@ -40,6 +40,7 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
   late final TextEditingController _textCtrl;
+  final _formFieldKey = GlobalKey<FormFieldState<T>>();
 
   List<T> _filteredItems = [];
   int _focusedIndex = 0;
@@ -81,15 +82,8 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
                 }
               });
             } else if (event.logicalKey == LogicalKeyboardKey.enter) {
-              final formFieldState = context.findAncestorStateOfType<FormFieldState<T>>();
               if (_filteredItems.isNotEmpty && _focusedIndex >= 0 && _focusedIndex < _filteredItems.length) {
-                if (formFieldState != null) {
-                  _selectItem(_filteredItems[_focusedIndex], formFieldState);
-                } else {
-                  widget.onChanged(_filteredItems[_focusedIndex]);
-                  _close();
-                  _updateText();
-                }
+                _selectItem(_filteredItems[_focusedIndex]);
               } else {
                 _close();
               }
@@ -216,7 +210,6 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
                           style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                     );
                   }
-                  final formFieldState = context.findAncestorStateOfType<FormFieldState<T>>();
 
                   return ListView.builder(
                     shrinkWrap: true,
@@ -229,13 +222,7 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
 
                       return InkWell(
                         onTap: () {
-                          if (formFieldState != null) {
-                            _selectItem(item, formFieldState);
-                          } else {
-                            widget.onChanged(item);
-                            _close();
-                            _updateText();
-                          }
+                          _selectItem(item);
                         },
                         child: Container(
                           constraints: const BoxConstraints(minHeight: 28),
@@ -292,9 +279,9 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
     if (mounted) setState(() => _isOpen = false);
   }
 
-  void _selectItem(T item, FormFieldState<T> state) {
+  void _selectItem(T item) {
     widget.onChanged(item);
-    state.didChange(item);
+    _formFieldKey.currentState?.didChange(item);
     _close();
     _updateText();
     if (widget.nextFocusNode != null) {
@@ -307,6 +294,7 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
   @override
   Widget build(BuildContext context) {
     return FormField<T>(
+      key: _formFieldKey,
       validator: widget.validator,
       initialValue: widget.selectedItem,
       builder: (state) {
