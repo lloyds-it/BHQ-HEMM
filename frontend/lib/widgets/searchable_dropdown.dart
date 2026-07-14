@@ -49,6 +49,57 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
     super.initState();
     _myFocusNode = widget.focusNode ?? FocusNode();
     _myFocusNode.addListener(_handleFocusChange);
+    
+    // Set up the key listener directly on the FocusNode to handle Arrow Up/Down and Enter
+    _myFocusNode.onKeyEvent = (node, event) {
+      if (event is KeyDownEvent) {
+        if (!_isOpen) {
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+              event.logicalKey == LogicalKeyboardKey.enter) {
+            _open();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        }
+
+        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+          setState(() {
+            if (_filteredItems.isNotEmpty) {
+              _focusedIndex = (_focusedIndex + 1) % _filteredItems.length;
+              _overlayEntry?.markNeedsBuild();
+            }
+          });
+          return KeyEventResult.handled;
+        } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+          setState(() {
+            if (_filteredItems.isNotEmpty) {
+              _focusedIndex = (_focusedIndex - 1 + _filteredItems.length) % _filteredItems.length;
+              _overlayEntry?.markNeedsBuild();
+            }
+          });
+          return KeyEventResult.handled;
+        } else if (event.logicalKey == LogicalKeyboardKey.enter) {
+          final formFieldState = context.findAncestorStateOfType<FormFieldState<T>>();
+          if (_filteredItems.isNotEmpty && _focusedIndex >= 0 && _focusedIndex < _filteredItems.length) {
+            if (formFieldState != null) {
+              _selectItem(_filteredItems[_focusedIndex], formFieldState);
+            } else {
+              widget.onChanged(_filteredItems[_focusedIndex]);
+              _close();
+              _updateText();
+            }
+          } else {
+            _close();
+          }
+          return KeyEventResult.handled;
+        } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+          _close();
+          return KeyEventResult.handled;
+        }
+      }
+      return KeyEventResult.ignored;
+    };
+
     _textCtrl = TextEditingController();
     _updateText();
     _filteredItems = widget.items;
@@ -162,7 +213,6 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
                           style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                     );
                   }
-                  // We need to look up FormFieldState dynamically to pass to _selectItem
                   final formFieldState = context.findAncestorStateOfType<FormFieldState<T>>();
 
                   return ListView.builder(
@@ -263,98 +313,55 @@ class _SearchableDropdownState<T> extends State<SearchableDropdown<T>> {
           children: [
             CompositedTransformTarget(
               link: _layerLink,
-              child: Focus(
-                focusNode: _myFocusNode,
-                onKeyEvent: (node, event) {
-                  if (event is KeyDownEvent) {
-                    if (!_isOpen) {
-                      if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-                          event.logicalKey == LogicalKeyboardKey.enter) {
-                        _open();
-                        return KeyEventResult.handled;
-                      }
-                      return KeyEventResult.ignored;
-                    }
-
-                    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                      setState(() {
-                        if (_filteredItems.isNotEmpty) {
-                          _focusedIndex = (_focusedIndex + 1) % _filteredItems.length;
-                          _overlayEntry?.markNeedsBuild();
-                        }
-                      });
-                      return KeyEventResult.handled;
-                    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                      setState(() {
-                        if (_filteredItems.isNotEmpty) {
-                          _focusedIndex = (_focusedIndex - 1 + _filteredItems.length) % _filteredItems.length;
-                          _overlayEntry?.markNeedsBuild();
-                        }
-                      });
-                      return KeyEventResult.handled;
-                    } else if (event.logicalKey == LogicalKeyboardKey.enter) {
-                      if (_filteredItems.isNotEmpty && _focusedIndex >= 0 && _focusedIndex < _filteredItems.length) {
-                        _selectItem(_filteredItems[_focusedIndex], state);
-                      } else {
-                        _close();
-                      }
-                      return KeyEventResult.handled;
-                    } else if (event.logicalKey == LogicalKeyboardKey.escape) {
-                      _close();
-                      return KeyEventResult.handled;
-                    }
-                  }
-                  return KeyEventResult.ignored;
-                },
-                child: SizedBox(
-                  height: 32,
-                  child: TextFormField(
-                    controller: _textCtrl,
-                    style: const TextStyle(fontSize: 12),
-                    decoration: InputDecoration(
-                      hintText: 'Type to select ${widget.label}',
-                      hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                      suffixIcon: Icon(
-                        _isOpen ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                        color: state.hasError
-                            ? AppColors.breakdown
-                            : _myFocusNode.hasFocus
-                                ? AppColors.primary
-                                : AppColors.textSecondary,
-                        size: 18,
-                      ),
-                      prefixIcon: widget.prefixIcon != null ? Icon(widget.prefixIcon, size: 14, color: AppColors.textSecondary) : null,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                      isDense: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(5),
-                        borderSide: BorderSide(color: state.hasError ? AppColors.breakdown : AppColors.border),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(5),
-                        borderSide: BorderSide(color: state.hasError ? AppColors.breakdown : AppColors.border),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(5),
-                        borderSide: BorderSide(
-                          color: state.hasError ? AppColors.breakdown : AppColors.primary,
-                          width: 1.5,
-                        ),
+              child: SizedBox(
+                height: 32,
+                child: TextFormField(
+                  focusNode: _myFocusNode,
+                  controller: _textCtrl,
+                  style: const TextStyle(fontSize: 12),
+                  decoration: InputDecoration(
+                    hintText: 'Type to select ${widget.label}',
+                    hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    suffixIcon: Icon(
+                      _isOpen ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                      color: state.hasError
+                          ? AppColors.breakdown
+                          : _myFocusNode.hasFocus
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                      size: 18,
+                    ),
+                    prefixIcon: widget.prefixIcon != null ? Icon(widget.prefixIcon, size: 14, color: AppColors.textSecondary) : null,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    isDense: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(5),
+                      borderSide: BorderSide(color: state.hasError ? AppColors.breakdown : AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(5),
+                      borderSide: BorderSide(color: state.hasError ? AppColors.breakdown : AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(5),
+                      borderSide: BorderSide(
+                        color: state.hasError ? AppColors.breakdown : AppColors.primary,
+                        width: 1.5,
                       ),
                     ),
-                    onChanged: (val) {
-                      setState(() {
-                        _filter(val);
-                        state.didChange(null);
-                        widget.onChanged(null);
-                        if (!_isOpen) {
-                          _open();
-                        } else {
-                          _overlayEntry?.markNeedsBuild();
-                        }
-                      });
-                    },
                   ),
+                  onChanged: (val) {
+                    setState(() {
+                      _filter(val);
+                      state.didChange(null);
+                      widget.onChanged(null);
+                      if (!_isOpen) {
+                        _open();
+                      } else {
+                        _overlayEntry?.markNeedsBuild();
+                      }
+                    });
+                  },
                 ),
               ),
             ),
