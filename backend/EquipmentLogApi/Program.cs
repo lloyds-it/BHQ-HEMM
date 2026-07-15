@@ -175,6 +175,34 @@ using (var scope = app.Services.CreateScope())
         await db.Database.EnsureCreatedAsync();
         Console.WriteLine("Database schema verified/created successfully.");
 
+        // Dynamic migration for Operator columns
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(@"
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('[BHQ_HEMM].[Operators]') AND name = 'EmployeeCode')
+                BEGIN
+                    ALTER TABLE [BHQ_HEMM].[Operators] ADD [EmployeeCode] NVARCHAR(50) NULL;
+                END
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('[BHQ_HEMM].[Operators]') AND name = 'Department')
+                BEGIN
+                    ALTER TABLE [BHQ_HEMM].[Operators] ADD [Department] NVARCHAR(100) NULL;
+                END
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('[BHQ_HEMM].[Operators]') AND name = 'Designation')
+                BEGIN
+                    ALTER TABLE [BHQ_HEMM].[Operators] ADD [Designation] NVARCHAR(100) NULL;
+                END
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('[BHQ_HEMM].[Operators]') AND name = 'Company')
+                BEGIN
+                    ALTER TABLE [BHQ_HEMM].[Operators] ADD [Company] NVARCHAR(150) NULL;
+                END
+            ");
+            Console.WriteLine("Operators table schema updated successfully.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Database schema migration failed: {ex.Message}");
+        }
+
         // 2. Seed default data if database is empty
         if (!await db.Users.AnyAsync())
         {

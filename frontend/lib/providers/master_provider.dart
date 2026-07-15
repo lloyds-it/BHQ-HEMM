@@ -226,12 +226,23 @@ class MasterProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> addOperator(String name, String? mobile) async {
+  Future<bool> addOperator({
+    required String name,
+    String? mobile,
+    String? employeeCode,
+    String? department,
+    String? designation,
+    String? company,
+  }) async {
     clearError();
     try {
       final response = await _apiClient.post('/Operator', {
         'operatorName': name,
         'mobile': mobile,
+        'employeeCode': employeeCode,
+        'department': department,
+        'designation': designation,
+        'company': company,
         'isActive': true,
       });
       if (response.statusCode == 201) {
@@ -247,13 +258,26 @@ class MasterProvider with ChangeNotifier {
     return false;
   }
 
-  Future<bool> updateOperator(int id, String name, String? mobile, bool isActive) async {
+  Future<bool> updateOperator({
+    required int id,
+    required String name,
+    String? mobile,
+    String? employeeCode,
+    String? department,
+    String? designation,
+    String? company,
+    required bool isActive,
+  }) async {
     clearError();
     try {
       final response = await _apiClient.put('/Operator/$id', {
         'operatorId': id,
         'operatorName': name,
         'mobile': mobile,
+        'employeeCode': employeeCode,
+        'department': department,
+        'designation': designation,
+        'company': company,
         'isActive': isActive,
       });
       if (response.statusCode == 204) {

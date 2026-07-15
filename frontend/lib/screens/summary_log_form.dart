@@ -491,7 +491,14 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
                                 searchHint: 'Search name...',
                                 selectedItem: _selectedOperator,
                                 itemAsString: (o) => o.operatorName,
-                                searchMatcher: (o, q) => o.operatorName.toLowerCase().contains(q.toLowerCase()),
+                                searchMatcher: (o, q) {
+                                  final query = q.toLowerCase();
+                                  return o.operatorName.toLowerCase().contains(query) ||
+                                      (o.employeeCode != null && o.employeeCode!.toLowerCase().contains(query)) ||
+                                      (o.department != null && o.department!.toLowerCase().contains(query)) ||
+                                      (o.designation != null && o.designation!.toLowerCase().contains(query)) ||
+                                      (o.company != null && o.company!.toLowerCase().contains(query));
+                                },
                                 onChanged: (val) => setState(() => _selectedOperator = val),
                                 validator: (val) => val == null ? 'Required' : null,
                                 prefixIcon: Icons.engineering_outlined,

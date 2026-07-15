@@ -14,5 +14,17 @@ public class Operator
     [MaxLength(20)]
     public string? Mobile { get; set; }
 
+    [MaxLength(50)]
+    public string? EmployeeCode { get; set; }
+
+    [MaxLength(100)]
+    public string? Department { get; set; }
+
+    [MaxLength(100)]
+    public string? Designation { get; set; }
+
+    [MaxLength(150)]
+    public string? Company { get; set; }
+
     public bool IsActive { get; set; } = true;
 }

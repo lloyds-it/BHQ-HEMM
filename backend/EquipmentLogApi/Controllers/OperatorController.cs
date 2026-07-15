@@ -29,7 +29,11 @@ public class OperatorController : ControllerBase
             search = search.Trim();
             operators = operators.Where(op => 
                 op.OperatorName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                (op.Mobile != null && op.Mobile.Contains(search))
+                (op.Mobile != null && op.Mobile.Contains(search)) ||
+                (op.EmployeeCode != null && op.EmployeeCode.Contains(search, StringComparison.OrdinalIgnoreCase)) ||
+                (op.Department != null && op.Department.Contains(search, StringComparison.OrdinalIgnoreCase)) ||
+                (op.Designation != null && op.Designation.Contains(search, StringComparison.OrdinalIgnoreCase)) ||
+                (op.Company != null && op.Company.Contains(search, StringComparison.OrdinalIgnoreCase))
             );
         }
 
@@ -81,6 +85,10 @@ public class OperatorController : ControllerBase
         existing.OperatorName = op.OperatorName;
         existing.Mobile = op.Mobile;
         existing.IsActive = op.IsActive;
+        existing.EmployeeCode = op.EmployeeCode;
+        existing.Department = op.Department;
+        existing.Designation = op.Designation;
+        existing.Company = op.Company;
 
         try
         {

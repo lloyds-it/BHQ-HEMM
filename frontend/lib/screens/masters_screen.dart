@@ -435,6 +435,10 @@ class _OperatorsMasterTabState extends State<_OperatorsMasterTab> {
   void _showAddEditDialog(BuildContext context, Operator? op) {
     final nameController = TextEditingController(text: op?.operatorName ?? '');
     final mobileController = TextEditingController(text: op?.mobile ?? '');
+    final empCodeController = TextEditingController(text: op?.employeeCode ?? '');
+    final deptController = TextEditingController(text: op?.department ?? '');
+    final desigController = TextEditingController(text: op?.designation ?? '');
+    final compController = TextEditingController(text: op?.company ?? '');
     bool isActive = op?.isActive ?? true;
 
     showDialog(
@@ -450,8 +454,20 @@ class _OperatorsMasterTabState extends State<_OperatorsMasterTab> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    TextField(controller: empCodeController,
+                        decoration: const InputDecoration(labelText: 'Employee Code'), autofocus: op == null),
+                    const SizedBox(height: 12),
                     TextField(controller: nameController,
-                        decoration: const InputDecoration(labelText: 'Operator Name'), autofocus: true),
+                        decoration: const InputDecoration(labelText: 'Operator Name')),
+                    const SizedBox(height: 12),
+                    TextField(controller: deptController,
+                        decoration: const InputDecoration(labelText: 'Department')),
+                    const SizedBox(height: 12),
+                    TextField(controller: desigController,
+                        decoration: const InputDecoration(labelText: 'Designation')),
+                    const SizedBox(height: 12),
+                    TextField(controller: compController,
+                        decoration: const InputDecoration(labelText: 'Company')),
                     const SizedBox(height: 12),
                     TextField(controller: mobileController,
                         decoration: const InputDecoration(labelText: 'Mobile Number'),
@@ -475,13 +491,33 @@ class _OperatorsMasterTabState extends State<_OperatorsMasterTab> {
                   onPressed: () async {
                     final name = nameController.text.trim();
                     final mobile = mobileController.text.trim();
+                    final empCode = empCodeController.text.trim();
+                    final dept = deptController.text.trim();
+                    final desig = desigController.text.trim();
+                    final comp = compController.text.trim();
                     if (name.isEmpty) return;
                     final provider = Provider.of<MasterProvider>(context, listen: false);
                     bool success;
                     if (op == null) {
-                      success = await provider.addOperator(name, mobile.isEmpty ? null : mobile);
+                      success = await provider.addOperator(
+                        name: name,
+                        mobile: mobile.isEmpty ? null : mobile,
+                        employeeCode: empCode.isEmpty ? null : empCode,
+                        department: dept.isEmpty ? null : dept,
+                        designation: desig.isEmpty ? null : desig,
+                        company: comp.isEmpty ? null : comp,
+                      );
                     } else {
-                      success = await provider.updateOperator(op.operatorId!, name, mobile.isEmpty ? null : mobile, isActive);
+                      success = await provider.updateOperator(
+                        id: op.operatorId!,
+                        name: name,
+                        mobile: mobile.isEmpty ? null : mobile,
+                        employeeCode: empCode.isEmpty ? null : empCode,
+                        department: dept.isEmpty ? null : dept,
+                        designation: desig.isEmpty ? null : desig,
+                        company: comp.isEmpty ? null : comp,
+                        isActive: isActive,
+                      );
                     }
                     if (success && dialogContext.mounted) {
                       Navigator.pop(dialogContext);
@@ -560,8 +596,26 @@ class _OperatorsMasterTabState extends State<_OperatorsMasterTab> {
                                   ),
                                   title: Text(op.operatorName,
                                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary)),
-                                  subtitle: Text('${op.mobile ?? "No mobile"}  ·  ${op.isActive ? "Active" : "Inactive"}',
-                                      style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Code: ${op.employeeCode ?? "-"}  ·  Company: ${op.company ?? "-"}',
+                                        style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        'Dept: ${op.department ?? "-"}  ·  Desig: ${op.designation ?? "-"}',
+                                        style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        'Phone: ${op.mobile ?? "-"}  ·  Status: ${op.isActive ? "Active" : "Inactive"}',
+                                        style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                                      ),
+                                    ],
+                                  ),
                                   trailing: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
