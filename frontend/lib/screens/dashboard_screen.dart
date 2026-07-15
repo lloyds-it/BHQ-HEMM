@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart';
@@ -22,17 +23,43 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+  final _secureStorage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   @override
   void initState() {
     super.initState();
+    _loadActiveTab();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<DashboardProvider>(context, listen: false).fetchStats();
     });
   }
 
+  void _loadActiveTab() async {
+    try {
+      final savedIndex = await _secureStorage.read(key: 'active_tab_index');
+      if (savedIndex != null) {
+        final index = int.tryParse(savedIndex);
+        if (index != null && index >= 0 && index <= 4) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _updateSelectedIndex(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    _secureStorage.write(key: 'active_tab_index', value: index.toString());
+  }
+
   void _logout() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await _secureStorage.delete(key: 'active_tab_index');
     await authProvider.logout();
     if (mounted) {
       Navigator.of(context).pushReplacement(
@@ -46,9 +73,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 0:
         return _DashboardContent(
           onLogout: _logout,
-          onNavigate: (index) {
-            setState(() => _selectedIndex = index);
-          },
+          onNavigate: _updateSelectedIndex,
         );
       case 1:
         return const LiveEntryForm(isEmbed: true);
@@ -175,9 +200,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSideNav(bool isAdmin) {
     return NavigationRail(
       selectedIndex: _selectedIndex,
-      onDestinationSelected: (index) {
-        setState(() => _selectedIndex = index);
-      },
+      onDestinationSelected: _updateSelectedIndex,
       labelType: NavigationRailLabelType.all,
       backgroundColor: Colors.white,
       selectedIconTheme: const IconThemeData(color: AppColors.primary, size: 20),
@@ -207,9 +230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildBottomNav(bool isAdmin) {
     return BottomNavigationBar(
       currentIndex: _selectedIndex,
-      onTap: (index) {
-        setState(() => _selectedIndex = index);
-      },
+      onTap: _updateSelectedIndex,
       type: BottomNavigationBarType.fixed,
       backgroundColor: Colors.white,
       selectedItemColor: AppColors.primary,

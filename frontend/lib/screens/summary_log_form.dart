@@ -128,6 +128,11 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
 
     await masterProvider.fetchEquipment();
     await masterProvider.fetchOperators();
+
+    // Automatically focus on equipment dropdown field on entry
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _equipmentFocus.requestFocus();
+    });
   }
 
   @override
@@ -325,7 +330,7 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
       _startTimestamp = DateTime.now().subtract(const Duration(hours: 8));
       _endTimestamp = DateTime.now();
     });
-    _projectFocus.requestFocus();
+    _equipmentFocus.requestFocus();
   }
 
   void _showSnackbar(String msg, Color color) {
@@ -347,10 +352,22 @@ class _SummaryLogFormState extends State<SummaryLogForm> {
 
 
 
-    final content = CallbackShortcuts(
-      bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(LogicalKeyboardKey.keyS, control: true): _submit,
-        const SingleActivator(LogicalKeyboardKey.keyR, control: true): _reset,
+    final content = Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.keyR &&
+              HardwareKeyboard.instance.isControlPressed) {
+            _reset();
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.keyS &&
+              HardwareKeyboard.instance.isControlPressed) {
+            _submit();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
       },
       child: Form(
         key: _formKey,

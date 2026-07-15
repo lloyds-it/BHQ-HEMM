@@ -79,6 +79,11 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
 
     await masterProvider.fetchEquipment();
     await masterProvider.fetchOperators(); // Fetch operators so they load correctly
+
+    // Automatically focus on equipment dropdown field on entry
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _equipmentFocus.requestFocus();
+    });
   }
 
   @override
@@ -124,7 +129,7 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
       _hmrController.clear();
       _selectedActivity = AppConstants.activityRunning;
     });
-    _projectFocus.requestFocus();
+    _equipmentFocus.requestFocus();
   }
 
   void _submit() async {
@@ -183,10 +188,22 @@ class _LiveEntryFormState extends State<LiveEntryForm> {
 
 
 
-    final content = CallbackShortcuts(
-      bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(LogicalKeyboardKey.keyS, control: true): _submit,
-        const SingleActivator(LogicalKeyboardKey.keyR, control: true): _reset,
+    final content = Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.keyR &&
+              HardwareKeyboard.instance.isControlPressed) {
+            _reset();
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.keyS &&
+              HardwareKeyboard.instance.isControlPressed) {
+            _submit();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
       },
       child: Form(
         key: _formKey,
